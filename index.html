@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>8× Fun With Words — Sequence</title>
+  <link rel="icon" type="image/png" href="favicon.png" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header>
+    <h1>8× Fun With Words</h1>
+    <p class="subtitle">Sequence Edition · Solve boards 1 → 8</p>
+  </header>
+
+  <main>
+    <div id="boardsWrap">
+      <div id="boards" aria-label="Eight word boards shown in four columns"></div>
+    </div>
+    <div id="hud">
+      <span id="status">Board <span id="boardNum">1</span> of 8</span>
+      <button id="resetBtn" aria-label="Reset game">Reset</button>
+    </div>
+    <div id="keyboard" aria-label="On-screen keyboard"></div>
+  </main>
+
+  <footer>
+    <small>Minimal Wordle-like UI · 5 letters · 15 tries · © You</small>
+  </footer>
+
+  <script src="js/words.js"></script>
+  <script src="js/valid_words.js"></script>
+  <script src="assets/confetti.js"></script>
+  <script src="js/game.js"></script>
+</body>
+</html>
