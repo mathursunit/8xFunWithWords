@@ -1,6 +1,6 @@
 // js/game.js — v1754 daily rotation from valid_words.txt
 document.addEventListener("DOMContentLoaded", () => {
-  const VERSION = "1754";
+  const VERSION = "1755";
   const WORD_LEN = 5;
   const MAX_ROWS = 15;
   const BOARD_COUNT = 8;
