@@ -1,8 +1,6 @@
-# 8× Fun With Words — v1.7.6 (Sequence Edition)
+# 8× Fun With Words — v1.7.7 (Daily rotation)
 
-- 4 boards per row (responsive)
-- 15 tries per board
-- Sequence replay across boards
-- Invalid guess row turns red until edited
-- External dictionary: `assets/valid_words.txt`
-- Cache-busted assets `?v=1745`
+- Answers come from `assets/valid_words.txt`
+- Rotates **8 answers/day at 8:00 AM ET** (America/New_York)
+- 4 boards per row, 15 tries/board, red invalid row
+- Cache-busted assets `?v=1754`
