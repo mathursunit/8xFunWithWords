@@ -2,7 +2,7 @@
 document.addEventListener("DOMContentLoaded", () => {
   try {
     (function () {
-      const VERSION = "1736";
+      const VERSION = "1745";
       const ANSWERS = (window.WORDS || []).slice(0, 8);
       const MAX_ROWS = 15;
       const WORD_LEN = 5;
@@ -14,14 +14,12 @@ document.addEventListener("DOMContentLoaded", () => {
       const boardNumEl = document.getElementById("boardNum");
       const resetBtn = document.getElementById("resetBtn");
 
+      // Build validation set (answers + external list)
       let validSet = new Set(ANSWERS.map((w) => w.toUpperCase()));
       if (location.protocol.startsWith("http")) {
         fetch("assets/valid_words.txt?v=" + VERSION)
           .then((r) => (r.ok ? r.text() : ""))
-          .then((t) => {
-            if (!t) return;
-            t.split(/\s+/).forEach((w) => { if (w) validSet.add(w.toUpperCase()); });
-          })
+          .then((t) => { if (t) t.split(/\s+/).forEach((w) => w && validSet.add(w.toUpperCase())); })
           .catch(() => {});
       }
 
@@ -37,7 +35,7 @@ document.addEventListener("DOMContentLoaded", () => {
         else if (k === "Enter") onEnter();
       });
 
-      resetBtn.addEventListener("click", resetGame);
+      resetBtn?.addEventListener("click", resetGame);
 
       function buildBoards() {
         boardsEl.innerHTML = "";
@@ -73,10 +71,10 @@ document.addEventListener("DOMContentLoaded", () => {
         const r3 = document.createElement("div"); r3.className = "krow";
         for (const ch of rows[0]) r1.appendChild(mkKey(ch));
         for (const ch of rows[1]) r2.appendChild(mkKey(ch));
-        r3.appendChild(mkKey("ENTER", "wide"));
+        r3.appendChild(mkKey("ENTER","wide"));
         for (const ch of rows[2]) r3.appendChild(mkKey(ch));
-        r3.appendChild(mkKey("⌫", "wide"));
-        keyboardEl.append(r1, r2, r3);
+        r3.appendChild(mkKey("⌫","wide"));
+        keyboardEl.append(r1,r2,r3);
       }
       function mkKey(label, extra) {
         const key = mk("div", "key" + (extra ? " " + extra : ""), label);
@@ -87,7 +85,6 @@ document.addEventListener("DOMContentLoaded", () => {
         });
         return key;
       }
-
       function mk(tag, cls, txt) { const el = document.createElement(tag); el.className = cls; el.textContent = txt; return el; }
       function cur() { return state[activeBoard]; }
       function boardEl(idx) { return boardsEl.children[idx]; }
@@ -101,26 +98,18 @@ document.addEventListener("DOMContentLoaded", () => {
         s.rows[s.attempt] = row + ch;
         renderRow(activeBoard, s.attempt);
       }
-
       function onBackspace() {
         const s = cur();
         if (s.solved) return;
         let row = s.rows[s.attempt] || "";
         if (!row.length) {
-          if (s.invalidRow === s.attempt) {
-            clearInvalidRow(activeBoard, s.attempt);
-            s.invalidRow = -1;
-          }
+          if (s.invalidRow === s.attempt) { clearInvalidRow(activeBoard, s.attempt); s.invalidRow = -1; }
           return;
         }
         s.rows[s.attempt] = row.slice(0, -1);
         renderRow(activeBoard, s.attempt);
-        if (s.invalidRow === s.attempt) {
-          clearInvalidRow(activeBoard, s.attempt);
-          s.invalidRow = -1;
-        }
+        if (s.invalidRow === s.attempt) { clearInvalidRow(activeBoard, s.attempt); s.invalidRow = -1; }
       }
-
       function onEnter() {
         const s = cur();
         if (s.solved) return;
@@ -143,16 +132,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (guess === answer) {
           s.solved = true;
-          if (activeBoard === 7) {
-            if (window.launchConfetti) window.launchConfetti();
-          } else {
-            unlockNext();
-          }
+          if (activeBoard === 7) { if (window.launchConfetti) window.launchConfetti(); }
+          else { unlockNext(); }
         } else {
           s.attempt++;
-          if (s.attempt >= MAX_ROWS) {
-            unlockNext();
-          }
+          if (s.attempt >= MAX_ROWS) { unlockNext(); }
         }
       }
 
@@ -160,26 +144,24 @@ document.addEventListener("DOMContentLoaded", () => {
         const b = boardEl(bi);
         const tiles = b.querySelectorAll(".tile");
         const start = ri * WORD_LEN;
-        for (let i = 0; i < WORD_LEN; i++) tiles[start + i].classList.add("invalid");
+        for (let i = 0; i < WORD_LEN; i++) tiles[start+i].classList.add("invalid");
       }
       function clearInvalidRow(bi, ri) {
         const b = boardEl(bi);
         const tiles = b.querySelectorAll(".tile");
         const start = ri * WORD_LEN;
-        for (let i = 0; i < WORD_LEN; i++) tiles[start + i].classList.remove("invalid");
+        for (let i = 0; i < WORD_LEN; i++) tiles[start+i].classList.remove("invalid");
       }
 
       function evalGuess(guess, answer) {
         const res = Array(WORD_LEN).fill("absent");
         const counts = {};
-        for (const ch of answer) counts[ch] = (counts[ch] || 0) + 1;
-        for (let i = 0; i < WORD_LEN; i++) {
-          if (guess[i] === answer[i]) { res[i] = "correct"; counts[guess[i]]--; }
-        }
-        for (let i = 0; i < WORD_LEN; i++) {
-          if (res[i] === "correct") continue;
+        for (const ch of answer) counts[ch] = (counts[ch]||0)+1;
+        for (let i=0;i<WORD_LEN;i++){ if (guess[i]===answer[i]) { res[i]="correct"; counts[guess[i]]--; } }
+        for (let i=0;i<WORD_LEN;i++){
+          if (res[i]==="correct") continue;
           const ch = guess[i];
-          if (counts[ch] > 0) { res[i] = "present"; counts[ch]--; }
+          if ((counts[ch]||0)>0) { res[i]="present"; counts[ch]--; }
         }
         return res;
       }
@@ -188,87 +170,68 @@ document.addEventListener("DOMContentLoaded", () => {
         const b = boardEl(bi);
         const tiles = b.querySelectorAll(".tile");
         const start = ri * WORD_LEN;
-        const s = state[bi];
-        const word = s.rows[ri];
-        for (let i = 0; i < WORD_LEN; i++) {
-          const t = tiles[start + i];
+        const word = state[bi].rows[ri];
+        for (let i=0;i<WORD_LEN;i++){
+          const t = tiles[start+i];
           t.textContent = word[i];
           t.classList.add("flip");
-          (function (tt, cls, d) {
-            setTimeout(() => { tt.classList.remove("flip"); tt.classList.add(cls); }, d);
-          })(t, res[i], 80 + i * 30);
+          setTimeout(() => { t.classList.remove("flip"); t.classList.add(res[i]); }, 80 + i*30);
         }
       }
-
       function renderRow(bi, ri) {
         const b = boardEl(bi);
         const tiles = b.querySelectorAll(".tile");
         const start = ri * WORD_LEN;
         const word = state[bi].rows[ri] || "";
-        for (let i = 0; i < WORD_LEN; i++) {
-          const t = tiles[start + i];
+        for (let i=0;i<WORD_LEN;i++){
+          const t = tiles[start+i];
           t.textContent = word[i] || "";
         }
       }
 
       function updateKeyboard(guess, res) {
-        for (let i = 0; i < WORD_LEN; i++) {
+        for (let i=0;i<WORD_LEN;i++){
           const ch = guess[i];
           const k = findKey(ch);
           if (!k) continue;
-          if (res[i] === "correct") {
-            k.classList.remove("present", "absent");
-            k.classList.add("correct");
-          } else if (res[i] === "present" && !k.classList.contains("correct")) {
-            k.classList.remove("absent");
-            k.classList.add("present");
-          } else if (!k.classList.contains("correct") && !k.classList.contains("present")) {
-            k.classList.add("absent");
-          }
+          if (res[i]==="correct") { k.classList.remove("present","absent"); k.classList.add("correct"); }
+          else if (res[i]==="present" && !k.classList.contains("correct")) { k.classList.remove("absent"); k.classList.add("present"); }
+          else if (!k.classList.contains("correct") && !k.classList.contains("present")) { k.classList.add("absent"); }
         }
       }
-
-      function findKey(ch) {
-        return Array.from(keyboardEl.querySelectorAll(".key")).find((k) => k.textContent === ch) || null;
-      }
+      function findKey(ch) { return Array.from(keyboardEl.querySelectorAll(".key")).find(k => k.textContent===ch) || null; }
 
       function unlockNext() {
         if (activeBoard < 7) {
-          const nextIndex = activeBoard + 1;
-          activeBoard = nextIndex;
+          activeBoard++;
           const sNext = state[activeBoard];
-          for (let g = 0; g < Math.min(submittedGuesses.length, MAX_ROWS); g++) {
+          for (let g=0; g<Math.min(submittedGuesses.length, MAX_ROWS); g++){
             const guess = submittedGuesses[g];
             sNext.rows[g] = guess;
             const res = evalGuess(guess, ANSWERS[activeBoard]);
             paintRow(activeBoard, g, res);
-            sNext.attempt = g + 1;
+            sNext.attempt = g+1;
           }
           updateLockUI();
           updateStatus();
-          boardEl(activeBoard).scrollIntoView({ behavior: "smooth", block: "nearest" });
+          boardEl(activeBoard).scrollIntoView({ behavior:"smooth", block:"nearest" });
         }
       }
-
       function updateLockUI() {
-        for (let i = 0; i < 8; i++) {
+        for (let i=0;i<8;i++){
           const b = boardEl(i);
-          if (i <= activeBoard) b.classList.remove("locked");
-          else b.classList.add("locked");
+          if (i <= activeBoard) b.classList.remove("locked"); else b.classList.add("locked");
         }
       }
-
-      function updateStatus() { boardNumEl.textContent = activeBoard + 1; }
+      function updateStatus(){ boardNumEl.textContent = (activeBoard+1); }
 
       function resetGame() {
         submittedGuesses.length = 0;
-        for (let i = 0; i < state.length; i++) {
-          state[i] = { rows: Array(MAX_ROWS).fill(""), attempt: 0, solved: false, invalidRow: -1 };
-        }
+        for (let i=0;i<state.length;i++) state[i] = { rows:Array(MAX_ROWS).fill(""), attempt:0, solved:false, invalidRow:-1 };
         activeBoard = 0;
-        for (let i = 0; i < 8; i++) {
+        for (let i=0;i<8;i++){
           const b = boardEl(i);
-          b.querySelectorAll(".tile").forEach((t) => { t.className = "tile"; t.textContent = ""; });
+          b.querySelectorAll(".tile").forEach(t => { t.className = "tile"; t.textContent = ""; });
         }
         buildKeyboard();
         updateLockUI();
