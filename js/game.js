@@ -1,6 +1,6 @@
-// js/game.js — v1754 daily rotation from valid_words.txt
+// js/game.js — v1756 daily rotation from valid_words.txt
 document.addEventListener("DOMContentLoaded", () => {
-  const VERSION = "1755";
+  const VERSION = "1756";
   const WORD_LEN = 5;
   const MAX_ROWS = 15;
   const BOARD_COUNT = 8;
@@ -135,7 +135,7 @@ document.addEventListener("DOMContentLoaded", () => {
     function paintRow(bi,ri,res){ const b=boardEl(bi); const tiles=b.querySelectorAll(".tile"); const start=ri*5; const word=state[bi].rows[ri];
       for(let i=0;i<5;i++){ const t=tiles[start+i]; t.textContent=word[i]; t.classList.add("flip"); setTimeout(()=>{ t.classList.remove("flip"); t.classList.add(res[i]); },80+i*30); } }
     function renderRow(bi,ri){ const b=boardEl(bi); const tiles=b.querySelectorAll(".tile"); const start=ri*5; const word=state[bi].rows[ri]||"";
-      for(let i=0;i<5;i++){ const t=tiles[start+i]; t.textContent=word[i] or ""; } }
+      for(let i=0;i<5;i++){ const t=tiles[start+i]; t.textContent = word[i] || ""; } }
     function updateKeyboard(guess,res){ for(let i=0;i<5;i++){ const ch=guess[i]; const k=findKey(ch); if(!k) continue;
       if(res[i]==="correct"){k.classList.remove("present","absent");k.classList.add("correct");}
       else if(res[i]==="present"&&!k.classList.contains("correct")){k.classList.remove("absent");k.classList.add("present");}
