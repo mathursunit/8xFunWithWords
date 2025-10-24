@@ -28,6 +28,10 @@ main{width:min(1100px,96vw);display:flex;flex-direction:column;gap:8px;flex:1}
 .key.present{background:var(--yellow);color:#fff}
 .key.absent{background:var(--gray);color:#fff}
 .key.wide{min-width:68px}
+/* Board nav row (1–8) */
+.krow-nav .key{ background:#3d4441; color:#fff; min-width:42px; }
+.krow-nav .key.active{ background: var(--green); border-color: var(--green); }
+.krow-nav .key.locked{ opacity:.35; cursor:not-allowed; }
 footer{margin:6px 0 12px 0;color:#666}
 @media (max-width:900px){#boards{grid-template-columns:repeat(2,1fr)}.tile{width:32px;height:32px;font-size:16px}}
 @media (max-width:520px){#boards{grid-template-columns:1fr}.tile{width:34px;height:34px}}
