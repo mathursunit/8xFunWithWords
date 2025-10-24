@@ -1,6 +1,6 @@
-// js/game.js — v1758 preview across boards + active nav + fixed mobile keyboard
+
 document.addEventListener("DOMContentLoaded", () => {
-  const VERSION = "1758";
+  const VERSION = "1759";
   const WORD_LEN = 5;
   const MAX_ROWS = 15;
   const BOARD_COUNT = 8;
@@ -112,13 +112,13 @@ document.addEventListener("DOMContentLoaded", () => {
     function onEnter(){ const s=cur(); if(s.solved) return; if(s.invalidRow===s.attempt) return; const guess=(s.rows[s.attempt]||"").toUpperCase(); if(guess.length!==WORD_LEN) return; if(!validSet.has(guess)){markInvalidRow(activeBoard,s.attempt); s.invalidRow=s.attempt; return;} const answer=ANSWERS[activeBoard]; const res=evalGuess(guess,answer); paintRow(activeBoard,s.attempt,res); updateKeyboard(guess,res); submittedGuesses.push(guess); if(guess===answer){ s.solved=true; if(activeBoard===BOARD_COUNT-1){ if(window.launchConfetti) window.launchConfetti(); } else unlockNext(); } else { s.attempt++; if(s.attempt>=MAX_ROWS) unlockNext(); } drawPreviewAll(); }
 
     function drawPreviewAll(){ const sCur=cur(); const curStr=(sCur.rows[sCur.attempt]||""); for(let bi=0; bi<BOARD_COUNT; bi++){ const s=state[bi]; const ri=s.attempt; if(ri>=MAX_ROWS) continue; if(s.rows[ri]) continue; setRowLetters(bi,ri,curStr); } }
-    function setRowLetters(bi,ri,str){ const b=boardEl(bi); const tiles=b.querySelectorAll(".tile"); const start=ri*WORD_LEN; for(let i=0;i<WORD_LEN;i++){ const t=tiles[start+i]; if(!(t.classList.contains("correct")||t.classList.contains("present")||t.classList.contains("absent"))) t.textContent=str[i] or ""; } }
+    function setRowLetters(bi,ri,str){ const b=boardEl(bi); const tiles=b.querySelectorAll(".tile"); const start=ri*WORD_LEN; for(let i=0;i<WORD_LEN;i++){ const t=tiles[start+i]; if(!(t.classList.contains("correct")||t.classList.contains("present")||t.classList.contains("absent"))) t.textContent=str[i] || ""; } }
 
     function markInvalidRow(bi,ri){ const b=boardEl(bi); const tiles=b.querySelectorAll(".tile"); const start=ri*WORD_LEN; for(let i=0;i<WORD_LEN;i++) tiles[start+i].classList.add("invalid"); }
     function clearInvalidRow(bi,ri){ const b=boardEl(bi); const tiles=b.querySelectorAll(".tile"); const start=ri*WORD_LEN; for(let i=0;i<WORD_LEN;i++) tiles[start+i].classList.remove("invalid"); }
     function evalGuess(guess,answer){ const res=Array(WORD_LEN).fill("absent"); const cnt={}; for(const ch of answer) cnt[ch]=(cnt[ch]||0)+1; for(let i=0;i<WORD_LEN;i++) if(guess[i]===answer[i]){ res[i]="correct"; cnt[guess[i]]--; } for(let i=0;i<WORD_LEN;i++) if(res[i]!=="correct"){ const ch=guess[i]; if((cnt[ch]||0)>0){ res[i]="present"; cnt[ch]--; } } return res; }
-    function paintRow(bi,ri,res){ const b=boardEl(bi); const tiles=b.querySelectorAll(".tile"); const start=ri*WORD_LEN; const word=state[bi].rows[ri]; for(let i=0;i<WORD_LEN;i++){ const t=tiles[start+i]; t.textContent=word[i]; t.classList.add("flip"); setTimeout(()=>{ t.classList.remove("flip"); t.classList.add(res[i]); },80+i*30); } }
-    function renderRow(bi,ri){ const b=boardEl(bi); const tiles=b.querySelectorAll(".tile"); const start=ri*WORD_LEN; const word=state[bi].rows[ri]||""; for(let i=0;i<WORD_LEN;i++){ const t=tiles[start+i]; t.textContent = word[i] or ""; } }
+    function paintRow(bi,ri,res){ const b=boardEl(bi); const tiles=b.querySelectorAll(".tile"); const start=ri*WORD_LEN; const word=state[bi].rows[ri]; for(let i=0;i<WORD_LEN;i++){ const t=tiles[start+i]; t.textContent=word[i] || ""; t.classList.add("flip"); setTimeout(()=>{ t.classList.remove("flip"); t.classList.add(res[i]); },80+i*30); } }
+    function renderRow(bi,ri){ const b=boardEl(bi); const tiles=b.querySelectorAll(".tile"); const start=ri*WORD_LEN; const word=state[bi].rows[ri]||""; for(let i=0;i<WORD_LEN;i++){ const t=tiles[start+i]; t.textContent = word[i] || ""; } }
     function updateKeyboard(guess,res){ for(let i=0;i<WORD_LEN;i++){ const ch=guess[i]; const k=findKey(ch); if(!k) continue; if(res[i]==="correct"){k.classList.remove("present","absent");k.classList.add("correct");} else if(res[i]==="present"&&!k.classList.contains("correct")){k.classList.remove("absent");k.classList.add("present");} else if(!k.classList.contains("correct")&&!k.classList.contains("present")){k.classList.add("absent");} } }
     function findKey(ch){ return Array.from(keyboardEl.querySelectorAll(".key")).find(k=>k.textContent===ch)||null; }
 
