@@ -1,6 +1,6 @@
 
 document.addEventListener("DOMContentLoaded", () => {
-  const VERSION = "1759";
+  const VERSION = "1760";
   const WORD_LEN = 5;
   const MAX_ROWS = 15;
   const BOARD_COUNT = 8;
@@ -52,14 +52,16 @@ document.addEventListener("DOMContentLoaded", () => {
     const validList = await loadValidList();
     const ANSWERS = selectAnswers(validList);
 
-    let activeBoard=0;
-    let maxUnlocked=0;
+    let activeBoard=0;     // the only board that accepts input
+    let viewBoard=0;       // which board is in view (via navigation)
+    let maxUnlocked=0;     // highest board index that is playable
     const submittedGuesses=[];
     const state = ANSWERS.map(()=>({rows:Array(MAX_ROWS).fill(""),attempt:0,solved:false,invalidRow:-1}));
 
     const boardsEl=document.getElementById("boards");
     const keyboardEl=document.getElementById("keyboard");
     const boardNumEl=document.getElementById("boardNum");
+    const activeNumEl=document.getElementById("activeNum");
     const resetBtn=document.getElementById("resetBtn");
 
     const validSet = new Set(validList);
@@ -87,7 +89,7 @@ document.addEventListener("DOMContentLoaded", () => {
     function buildKeyboard(){
       keyboardEl.innerHTML="";
       const nav=document.createElement("div"); nav.className="krow krow-nav";
-      for (let i=1;i<=BOARD_COUNT;i++){ const k=mk("div","key",String(i)); k.dataset.idx=String(i-1); k.addEventListener("click",()=>onNavClick(i-1)); nav.appendChild(k);}
+      for (let i=1;i<=BOARD_COUNT;i++){ const k=mk("div","key",String(i)); k.dataset.idx=String(i-1); k.title="Jump to board "+i; k.addEventListener("click",()=>onNavClick(i-1)); nav.appendChild(k);}
       const rows=["QWERTYUIOP","ASDFGHJKL","ZXCVBNM"];
       const r1=document.createElement("div"); r1.className="krow";
       const r2=document.createElement("div"); r2.className="krow";
@@ -104,15 +106,87 @@ document.addEventListener("DOMContentLoaded", () => {
     function cur(){return state[activeBoard];}
     function boardEl(i){return boardsEl.children[i];}
 
-    function onNavClick(idx){ activeBoard=idx; if (idx>maxUnlocked) maxUnlocked=idx; updateLockUI(); updateStatus(); updateNavButtons(); boardEl(activeBoard).scrollIntoView({behavior:"smooth",block:"nearest"}); drawPreviewAll(); }
-    function updateNavButtons(){ const btns=keyboardEl.querySelectorAll(".krow-nav .key"); btns.forEach((b,i)=>{ b.classList.toggle("active", i===activeBoard); }); }
+    // NAVIGATION: do NOT unlock sequence
+    function onNavClick(idx){ 
+      viewBoard = idx; 
+      updateStatus(); 
+      updateNavButtons(); 
+      boardEl(viewBoard).scrollIntoView({behavior:"smooth",block:"nearest"});
+      drawPreviewAll();
+    }
+    function updateNavButtons(){ const btns=keyboardEl.querySelectorAll(".krow-nav .key"); btns.forEach((b,i)=>{ b.classList.toggle("active", i===viewBoard); }); }
 
-    function onLetter(ch){ const s=cur(); if(s.solved) return; if(s.invalidRow===s.attempt) return; const row=s.rows[s.attempt]||""; if(row.length>=WORD_LEN) return; s.rows[s.attempt]=row+ch; renderRow(activeBoard,s.attempt); drawPreviewAll(); }
-    function onBackspace(){ const s=cur(); if(s.solved) return; let row=s.rows[s.attempt]||""; if(!row.length){ if(s.invalidRow===s.attempt){clearInvalidRow(activeBoard,s.attempt); s.invalidRow=-1;} drawPreviewAll(); return; } s.rows[s.attempt]=row.slice(0,-1); renderRow(activeBoard,s.attempt); if(s.invalidRow===s.attempt){clearInvalidRow(activeBoard,s.attempt); s.invalidRow=-1;} drawPreviewAll(); }
-    function onEnter(){ const s=cur(); if(s.solved) return; if(s.invalidRow===s.attempt) return; const guess=(s.rows[s.attempt]||"").toUpperCase(); if(guess.length!==WORD_LEN) return; if(!validSet.has(guess)){markInvalidRow(activeBoard,s.attempt); s.invalidRow=s.attempt; return;} const answer=ANSWERS[activeBoard]; const res=evalGuess(guess,answer); paintRow(activeBoard,s.attempt,res); updateKeyboard(guess,res); submittedGuesses.push(guess); if(guess===answer){ s.solved=true; if(activeBoard===BOARD_COUNT-1){ if(window.launchConfetti) window.launchConfetti(); } else unlockNext(); } else { s.attempt++; if(s.attempt>=MAX_ROWS) unlockNext(); } drawPreviewAll(); }
+    // INPUT only affects activeBoard. If user is viewing a different board, we still type into active.
+    function onLetter(ch){ 
+      const s=cur(); 
+      if(s.solved) return; 
+      if(s.invalidRow===s.attempt) return; 
+      const row=s.rows[s.attempt]||""; 
+      if(row.length>=WORD_LEN) return; 
+      s.rows[s.attempt]=row+ch; 
+      renderRow(activeBoard,s.attempt); 
+      drawPreviewAll(); 
+    }
+    function onBackspace(){ 
+      const s=cur(); 
+      if(s.solved) return; 
+      let row=s.rows[s.attempt]||""; 
+      if(!row.length){ 
+        if(s.invalidRow===s.attempt){clearInvalidRow(activeBoard,s.attempt); s.invalidRow=-1;} 
+        drawPreviewAll(); 
+        return; 
+      } 
+      s.rows[s.attempt]=row.slice(0,-1); 
+      renderRow(activeBoard,s.attempt); 
+      if(s.invalidRow===s.attempt){clearInvalidRow(activeBoard,s.attempt); s.invalidRow=-1;} 
+      drawPreviewAll(); 
+    }
+    function onEnter(){ 
+      const s=cur(); 
+      if(s.solved) return; 
+      if(s.invalidRow===s.attempt) return; 
+      const guess=(s.rows[s.attempt]||"").toUpperCase(); 
+      if(guess.length!==WORD_LEN) return; 
+      if(!validSet.has(guess)){markInvalidRow(activeBoard,s.attempt); s.invalidRow=s.attempt; return;} 
+      const answer=ANSWERS[activeBoard]; 
+      const res=evalGuess(guess,answer); 
+      paintRow(activeBoard,s.attempt,res); 
+      updateKeyboard(guess,res); 
+      submittedGuesses.push(guess); 
+      if(guess===answer){ 
+        s.solved=true; 
+        if(activeBoard===BOARD_COUNT-1){ if(window.launchConfetti) window.launchConfetti(); } 
+        else unlockNext(); 
+      } else { 
+        s.attempt++; 
+        if(s.attempt>=MAX_ROWS) unlockNext(); 
+      } 
+      drawPreviewAll(); 
+    }
 
-    function drawPreviewAll(){ const sCur=cur(); const curStr=(sCur.rows[sCur.attempt]||""); for(let bi=0; bi<BOARD_COUNT; bi++){ const s=state[bi]; const ri=s.attempt; if(ri>=MAX_ROWS) continue; if(s.rows[ri]) continue; setRowLetters(bi,ri,curStr); } }
-    function setRowLetters(bi,ri,str){ const b=boardEl(bi); const tiles=b.querySelectorAll(".tile"); const start=ri*WORD_LEN; for(let i=0;i<WORD_LEN;i++){ const t=tiles[start+i]; if(!(t.classList.contains("correct")||t.classList.contains("present")||t.classList.contains("absent"))) t.textContent=str[i] || ""; } }
+    // Live preview onto every board's current row (no colors).
+    function drawPreviewAll(){ 
+      const sCur=cur(); 
+      const curStr=(sCur.rows[sCur.attempt]||""); 
+      for(let bi=0; bi<BOARD_COUNT; bi++){ 
+        const s=state[bi]; 
+        const ri=s.attempt; 
+        if(ri>=MAX_ROWS) continue; 
+        // don't overwrite already-typed row on that board
+        if(s.rows[ri]) continue; 
+        setRowLetters(bi,ri,curStr); 
+      } 
+    }
+    function setRowLetters(bi,ri,str){ 
+      const b=boardEl(bi); 
+      const tiles=b.querySelectorAll(".tile"); 
+      const start=ri*WORD_LEN; 
+      for(let i=0;i<WORD_LEN;i++){ 
+        const t=tiles[start+i]; 
+        if(!(t.classList.contains("correct")||t.classList.contains("present")||t.classList.contains("absent"))) 
+          t.textContent=str[i] || ""; 
+      } 
+    }
 
     function markInvalidRow(bi,ri){ const b=boardEl(bi); const tiles=b.querySelectorAll(".tile"); const start=ri*WORD_LEN; for(let i=0;i<WORD_LEN;i++) tiles[start+i].classList.add("invalid"); }
     function clearInvalidRow(bi,ri){ const b=boardEl(bi); const tiles=b.querySelectorAll(".tile"); const start=ri*WORD_LEN; for(let i=0;i<WORD_LEN;i++) tiles[start+i].classList.remove("invalid"); }
@@ -122,10 +196,35 @@ document.addEventListener("DOMContentLoaded", () => {
     function updateKeyboard(guess,res){ for(let i=0;i<WORD_LEN;i++){ const ch=guess[i]; const k=findKey(ch); if(!k) continue; if(res[i]==="correct"){k.classList.remove("present","absent");k.classList.add("correct");} else if(res[i]==="present"&&!k.classList.contains("correct")){k.classList.remove("absent");k.classList.add("present");} else if(!k.classList.contains("correct")&&!k.classList.contains("present")){k.classList.add("absent");} } }
     function findKey(ch){ return Array.from(keyboardEl.querySelectorAll(".key")).find(k=>k.textContent===ch)||null; }
 
-    function unlockNext(){ if(activeBoard<BOARD_COUNT-1){ activeBoard++; if(activeBoard>maxUnlocked) maxUnlocked=activeBoard; const sNext=state[activeBoard]; for(let g=0; g<Math.min(submittedGuesses.length,MAX_ROWS); g++){ const guess=submittedGuesses[g]; sNext.rows[g]=guess; const res=evalGuess(guess,ANSWERS[activeBoard]); paintRow(activeBoard,g,res); sNext.attempt=g+1; } updateLockUI(); updateStatus(); updateNavButtons(); boardEl(activeBoard).scrollIntoView({behavior:"smooth",block:"nearest"}); } }
+    function unlockNext(){ 
+      if(activeBoard<BOARD_COUNT-1){ 
+        activeBoard++; 
+        if(activeBoard>maxUnlocked) maxUnlocked=activeBoard; 
+        // after unlocking, if viewer was behind, keep it, otherwise auto-follow
+        if(viewBoard<activeBoard-1){ /* keep viewer where it was */ } else { viewBoard=activeBoard; }
+        const sNext=state[activeBoard]; 
+        for(let g=0; g<Math.min(submittedGuesses.length,MAX_ROWS); g++){ 
+          const guess=submittedGuesses[g]; 
+          sNext.rows[g]=guess; 
+          const res=evalGuess(guess,ANSWERS[activeBoard]); 
+          paintRow(activeBoard,g,res); 
+          sNext.attempt=g+1; 
+        } 
+        updateLockUI(); 
+        updateStatus(); 
+        updateNavButtons(); 
+        boardEl(viewBoard).scrollIntoView({behavior:"smooth",block:"nearest"}); 
+      } 
+    }
     function updateLockUI(){ for(let i=0;i<BOARD_COUNT;i++){ const b=boardEl(i); if(i<=maxUnlocked) b.classList.remove("locked"); else b.classList.add("locked"); } }
-    function updateStatus(){ boardNumEl.textContent=(activeBoard+1); }
+    function updateStatus(){ boardNumEl.textContent=(viewBoard+1); activeNumEl.textContent=(activeBoard+1); }
 
-    function resetGame(){ submittedGuesses.length=0; for(let i=0;i<state.length;i++) state[i]={rows:Array(MAX_ROWS).fill(""),attempt:0,solved:false,invalidRow:-1}; activeBoard=0; maxUnlocked=0; for(let i=0;i<BOARD_COUNT;i++){ const b=boardEl(i); b.querySelectorAll(".tile").forEach(t=>{t.className="tile"; t.textContent="";}); } buildKeyboard(); updateLockUI(); updateStatus(); updateNavButtons(); drawPreviewAll(); }
+    function resetGame(){ 
+      submittedGuesses.length=0; 
+      for(let i=0;i<state.length;i++) state[i]={rows:Array(MAX_ROWS).fill(""),attempt:0,solved:false,invalidRow:-1}; 
+      activeBoard=0; viewBoard=0; maxUnlocked=0; 
+      for(let i=0;i<BOARD_COUNT;i++){ const b=boardEl(i); b.querySelectorAll(".tile").forEach(t=>{t.className="tile"; t.textContent="";}); } 
+      buildKeyboard(); updateLockUI(); updateStatus(); updateNavButtons(); drawPreviewAll(); 
+    }
   })().catch(err=>{ console.error(err); const s=document.getElementById("status"); if(s) s.textContent="Error loading game: "+err; });
 });
