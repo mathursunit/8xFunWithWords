@@ -1,1 +1,1 @@
-v2.0.2; cache-bust v=1760
+v2.0.3; cache-bust v=1761 — ghost grey on all non-active boards; colors only on active.

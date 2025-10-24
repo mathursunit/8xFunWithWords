@@ -1,6 +1,6 @@
 
 document.addEventListener("DOMContentLoaded", () => {
-  const VERSION = "1760";
+  const VERSION = "1761";
   const WORD_LEN = 5;
   const MAX_ROWS = 15;
   const BOARD_COUNT = 8;
@@ -52,9 +52,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const validList = await loadValidList();
     const ANSWERS = selectAnswers(validList);
 
-    let activeBoard=0;     // the only board that accepts input
-    let viewBoard=0;       // which board is in view (via navigation)
-    let maxUnlocked=0;     // highest board index that is playable
+    let activeBoard=0;     // accepts input
+    let viewBoard=0;       // just for viewing
+    let maxUnlocked=0;     // highest index playable
     const submittedGuesses=[];
     const state = ANSWERS.map(()=>({rows:Array(MAX_ROWS).fill(""),attempt:0,solved:false,invalidRow:-1}));
 
@@ -106,7 +106,7 @@ document.addEventListener("DOMContentLoaded", () => {
     function cur(){return state[activeBoard];}
     function boardEl(i){return boardsEl.children[i];}
 
-    // NAVIGATION: do NOT unlock sequence
+    // NAVIGATION (view only)
     function onNavClick(idx){ 
       viewBoard = idx; 
       updateStatus(); 
@@ -116,7 +116,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     function updateNavButtons(){ const btns=keyboardEl.querySelectorAll(".krow-nav .key"); btns.forEach((b,i)=>{ b.classList.toggle("active", i===viewBoard); }); }
 
-    // INPUT only affects activeBoard. If user is viewing a different board, we still type into active.
+    // INPUT to active board only
     function onLetter(ch){ 
       const s=cur(); 
       if(s.solved) return; 
@@ -124,7 +124,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const row=s.rows[s.attempt]||""; 
       if(row.length>=WORD_LEN) return; 
       s.rows[s.attempt]=row+ch; 
-      renderRow(activeBoard,s.attempt); 
+      renderRowActive(activeBoard,s.attempt); 
       drawPreviewAll(); 
     }
     function onBackspace(){ 
@@ -137,7 +137,7 @@ document.addEventListener("DOMContentLoaded", () => {
         return; 
       } 
       s.rows[s.attempt]=row.slice(0,-1); 
-      renderRow(activeBoard,s.attempt); 
+      renderRowActive(activeBoard,s.attempt); 
       if(s.invalidRow===s.attempt){clearInvalidRow(activeBoard,s.attempt); s.invalidRow=-1;} 
       drawPreviewAll(); 
     }
@@ -150,7 +150,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if(!validSet.has(guess)){markInvalidRow(activeBoard,s.attempt); s.invalidRow=s.attempt; return;} 
       const answer=ANSWERS[activeBoard]; 
       const res=evalGuess(guess,answer); 
-      paintRow(activeBoard,s.attempt,res); 
+      paintRowColored(activeBoard,s.attempt,res); 
       updateKeyboard(guess,res); 
       submittedGuesses.push(guess); 
       if(guess===answer){ 
@@ -164,7 +164,7 @@ document.addEventListener("DOMContentLoaded", () => {
       drawPreviewAll(); 
     }
 
-    // Live preview onto every board's current row (no colors).
+    // Preview: show gray letters on all boards (including future boards)
     function drawPreviewAll(){ 
       const sCur=cur(); 
       const curStr=(sCur.rows[sCur.attempt]||""); 
@@ -172,47 +172,60 @@ document.addEventListener("DOMContentLoaded", () => {
         const s=state[bi]; 
         const ri=s.attempt; 
         if(ri>=MAX_ROWS) continue; 
-        // don't overwrite already-typed row on that board
-        if(s.rows[ri]) continue; 
-        setRowLetters(bi,ri,curStr); 
+        // If the board has text in its current row (because we propagated guesses), keep that; otherwise mirror current input
+        const str = s.rows[ri] || curStr;
+        setRowGhost(bi,ri,str, bi!==activeBoard); 
       } 
     }
-    function setRowLetters(bi,ri,str){ 
+
+    // Render helpers
+    function setRowGhost(bi,ri,str,ghost=true){ 
       const b=boardEl(bi); 
       const tiles=b.querySelectorAll(".tile"); 
       const start=ri*WORD_LEN; 
       for(let i=0;i<WORD_LEN;i++){ 
         const t=tiles[start+i]; 
-        if(!(t.classList.contains("correct")||t.classList.contains("present")||t.classList.contains("absent"))) 
-          t.textContent=str[i] || ""; 
+        t.classList.remove("correct","present","absent","invalid");
+        if(ghost) t.classList.add("ghost"); else t.classList.remove("ghost");
+        t.textContent=str[i] || ""; 
       } 
     }
-
+    function renderRowActive(bi,ri){ // active board typing row (no ghost)
+      const s=state[bi]; const str=s.rows[ri]||""; setRowGhost(bi,ri,str,false);
+    }
     function markInvalidRow(bi,ri){ const b=boardEl(bi); const tiles=b.querySelectorAll(".tile"); const start=ri*WORD_LEN; for(let i=0;i<WORD_LEN;i++) tiles[start+i].classList.add("invalid"); }
     function clearInvalidRow(bi,ri){ const b=boardEl(bi); const tiles=b.querySelectorAll(".tile"); const start=ri*WORD_LEN; for(let i=0;i<WORD_LEN;i++) tiles[start+i].classList.remove("invalid"); }
     function evalGuess(guess,answer){ const res=Array(WORD_LEN).fill("absent"); const cnt={}; for(const ch of answer) cnt[ch]=(cnt[ch]||0)+1; for(let i=0;i<WORD_LEN;i++) if(guess[i]===answer[i]){ res[i]="correct"; cnt[guess[i]]--; } for(let i=0;i<WORD_LEN;i++) if(res[i]!=="correct"){ const ch=guess[i]; if((cnt[ch]||0)>0){ res[i]="present"; cnt[ch]--; } } return res; }
-    function paintRow(bi,ri,res){ const b=boardEl(bi); const tiles=b.querySelectorAll(".tile"); const start=ri*WORD_LEN; const word=state[bi].rows[ri]; for(let i=0;i<WORD_LEN;i++){ const t=tiles[start+i]; t.textContent=word[i] || ""; t.classList.add("flip"); setTimeout(()=>{ t.classList.remove("flip"); t.classList.add(res[i]); },80+i*30); } }
-    function renderRow(bi,ri){ const b=boardEl(bi); const tiles=b.querySelectorAll(".tile"); const start=ri*WORD_LEN; const word=state[bi].rows[ri]||""; for(let i=0;i<WORD_LEN;i++){ const t=tiles[start+i]; t.textContent = word[i] || ""; } }
+    function paintRowColored(bi,ri,res){ const b=boardEl(bi); const tiles=b.querySelectorAll(".tile"); const start=ri*WORD_LEN; const word=state[bi].rows[ri]; for(let i=0;i<WORD_LEN;i++){ const t=tiles[start+i]; t.classList.remove("ghost"); t.textContent=word[i] || ""; t.classList.add("flip"); setTimeout(()=>{ t.classList.remove("flip"); t.classList.add(res[i]); },80+i*30); } }
+    function paintRowGhost(bi,ri){ const s=state[bi]; const str=s.rows[ri]||""; setRowGhost(bi,ri,str,true); }
+    function paintExistingAsColored(bi){ // recolor previously placed guesses once board becomes active
+      const s=state[bi]; 
+      for(let r=0;r<s.attempt;r++){ 
+        const guess=s.rows[r]; 
+        const res=evalGuess(guess,ANSWERS[bi]); 
+        paintRowColored(bi,r,res); 
+      } 
+      renderRowActive(bi,s.attempt);
+    }
     function updateKeyboard(guess,res){ for(let i=0;i<WORD_LEN;i++){ const ch=guess[i]; const k=findKey(ch); if(!k) continue; if(res[i]==="correct"){k.classList.remove("present","absent");k.classList.add("correct");} else if(res[i]==="present"&&!k.classList.contains("correct")){k.classList.remove("absent");k.classList.add("present");} else if(!k.classList.contains("correct")&&!k.classList.contains("present")){k.classList.add("absent");} } }
     function findKey(ch){ return Array.from(keyboardEl.querySelectorAll(".key")).find(k=>k.textContent===ch)||null; }
 
     function unlockNext(){ 
       if(activeBoard<BOARD_COUNT-1){ 
-        activeBoard++; 
-        if(activeBoard>maxUnlocked) maxUnlocked=activeBoard; 
-        // after unlocking, if viewer was behind, keep it, otherwise auto-follow
-        if(viewBoard<activeBoard-1){ /* keep viewer where it was */ } else { viewBoard=activeBoard; }
-        const sNext=state[activeBoard]; 
+        // future board receives the history BUT stays gray
+        const next=activeBoard+1; 
+        const sNext=state[next]; 
         for(let g=0; g<Math.min(submittedGuesses.length,MAX_ROWS); g++){ 
           const guess=submittedGuesses[g]; 
           sNext.rows[g]=guess; 
-          const res=evalGuess(guess,ANSWERS[activeBoard]); 
-          paintRow(activeBoard,g,res); 
           sNext.attempt=g+1; 
+          paintRowGhost(next,g); 
         } 
-        updateLockUI(); 
-        updateStatus(); 
-        updateNavButtons(); 
+        activeBoard = next; 
+        if(activeBoard>maxUnlocked) maxUnlocked=activeBoard; 
+        viewBoard = activeBoard; 
+        paintExistingAsColored(activeBoard); 
+        updateLockUI(); updateStatus(); updateNavButtons(); 
         boardEl(viewBoard).scrollIntoView({behavior:"smooth",block:"nearest"}); 
       } 
     }
