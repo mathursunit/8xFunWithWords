@@ -1,12 +1,9 @@
-const VERSION = "1782";
-const VERSION = "1780";
-
+window.APP_BUILD = window.APP_BUILD || "1786";
 document.addEventListener("DOMContentLoaded", () => {
-  const VERSION = "1767";
-  const WORD_LEN = 5;
+const WORD_LEN = 5;
   const MAX_ROWS = 15;
   const BOARD_COUNT = 8;
-  const VALID_TXT_URL = "assets/valid_words.txt?v=" + VERSION;
+  const VALID_TXT_URL = "assets/valid_words.txt?v=1786?v=" + window.APP_BUILD;
 
   (function initTheme(){
     try{
@@ -30,7 +27,7 @@ document.addEventListener("DOMContentLoaded", () => {
   async function loadValidList() {
     try {
       const r = await fetch(VALID_TXT_URL, { cache: "no-store" });
-      if (!r.ok) throw new Error("no valid_words.txt");
+      if (!r.ok) throw new Error("no valid_words.txt?v=1786");
       const raw = await r.text();
       const list = raw.split(/\r?\n|[\s,]+/).map(w=>w.trim().toUpperCase()).filter(w=>/^[A-Z]{5}$/.test(w));
       return Array.from(new Set(list));
@@ -218,7 +215,7 @@ function updateKeyboard(guess,res){ for(let i=0;i<WORD_LEN;i++){ const ch=guess[
 
 // v2.1.3: single source-of-truth version badge
 (function(){
-  var VERSION_LABEL = "v2.1.3 · 1780";
+  var VERSION_LABEL = "v2.1.3 · 1785";
   function setBadge(){
     try {
       var el = document.getElementById('versionBadge');
@@ -234,9 +231,9 @@ function updateKeyboard(guess,res){ for(let i=0;i<WORD_LEN;i++){ const ch=guess[
 })();
 
 
-// v2.1.4 runtime version badge
+// v2.1.5 runtime version badge
 (function() {
-  var VERSION_LABEL = "v2.1.4 · 1782";
+  var VERSION_LABEL = "v2.1.5 · 1785";
   function setBadge() {
     var el = document.getElementById('versionBadge');
     if (el) el.textContent = VERSION_LABEL;
@@ -246,4 +243,14 @@ function updateKeyboard(guess,res){ for(let i=0;i<WORD_LEN;i++){ const ch=guess[
   } else {
     setBadge();
   }
+})();
+
+(function(){try{var el=document.getElementById('versionBadge'); if(el) el.textContent='v2.1.5 · 1785';}catch(_){
+}})();
+
+// Runtime version badge writer
+(function(){
+  var label = "v2.1.6 · 1786";
+  function setBadge(){ var el = document.getElementById('versionBadge'); if(el) el.textContent = label; }
+  if(document.readyState === 'loading'){ document.addEventListener('DOMContentLoaded', setBadge, {once:true}); } else { setBadge(); }
 })();
