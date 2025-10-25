@@ -1,28 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 110" width="700" height="110">
-  <defs>
-    <style>
-      .a{font:700 72px system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif;}
-      .b{font:500 26px system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif; fill:#444;}
-    </style>
-  </defs>
-  <rect width="700" height="110" fill="white"/>
-  <text x="12" y="80" class="a" fill="#f7b733">Sun</text>
-  <text x="220" y="80" class="a" fill="#3fa7ff">Sar</text>
-  <g transform="translate(420,22)">
-    <circle cx="40" cy="40" r="18" fill="#ffcc4d"/>
-    <circle cx="35" cy="35" r="3" fill="#6b5a00"/>
-    <circle cx="45" cy="35" r="3" fill="#6b5a00"/>
-    <path d="M32 46 q8 7 16 0" stroke="#6b5a00" stroke-width="3" fill="none" stroke-linecap="round"/>
-    <g stroke="#ffcc4d" stroke-width="4">
-      <line x1="40" y1="8" x2="40" y2="0"/>
-      <line x1="40" y1="72" x2="40" y2="80"/>
-      <line x1="8" y1="40" x2="0" y2="40"/>
-      <line x1="72" y1="40" x2="80" y2="40"/>
-      <line x1="14" y1="14" x2="8" y2="8"/>
-      <line x1="66" y1="14" x2="72" y2="8"/>
-      <line x1="14" y1="66" x2="8" y2="72"/>
-      <line x1="66" y1="66" x2="72" y2="72"/>
-    </g>
-  </g>
-  <text x="520" y="85" class="b">8× Fun With Words</text>
+
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="48" viewBox="0 0 360 48">
+  <rect width="360" height="48" rx="8" fill="#fff"/>
+  <text x="8" y="33" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="700" fill="#f2b01a">Sun</text>
+  <text x="78" y="33" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="700" fill="#2a94ff">Sar</text>
+  <text x="156" y="33" font-family="Arial, Helvetica, sans-serif" font-size="16" fill="#666">8× Fun With Words</text>
 </svg>

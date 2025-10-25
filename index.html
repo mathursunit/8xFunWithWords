@@ -1,56 +1,49 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>8× Fun With Words — Sequence</title>
-  <script>window.AppVersion=Object.freeze({version:"2.1.13",build:1783});</script>
-  <link rel="stylesheet" href="css/style.css?v=2131"/>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<title>8× Fun With Words</title>
+<link rel="stylesheet" href="css/style.css?v=1784"/>
 </head>
 <body>
-  <header class="topbar">
-    <div class="topbar-inner">
-      <div class="brand">
-        <img id="logo" src="assets/logo.png" alt="SunSar — 8x Fun With Words"/>
-        <span class="tagline">Sequence Edition · Daily answers rotate at 8:00 AM ET</span>
+<header>
+  <div class="header-inner">
+    <div class="brand" style="gap:12px">
+      <img src="assets/logo.svg" alt="SunSar logo" />
+      <div class="tagline">Sequence Edition · Daily answers rotate at 8:00 AM ET</div>
+    </div>
+    <div class="actions">
+      <button id="statsBtn" class="btn">Stats</button>
+      <button id="aboutBtn" class="btn">About</button>
+      <div style="display:flex;gap:6px;align-items:center;margin-left:10px">
+        <span class="tagline">Theme</span>
+        <button id="lightBtn" class="btn" aria-pressed="true">Light</button>
+        <button id="darkBtn" class="btn" aria-pressed="false">Dark</button>
       </div>
-      <nav class="hud">
-        <a class="hud-link" href="#" id="statsLink">Stats</a>
-        <a class="hud-link" href="#" id="aboutLink">About</a>
-        <span id="verBadge" class="ver-badge">v2.1.13 · 1783</span>
-      </nav>
-    </div>
-  </header>
-
-  <div class="container">
-    <div class="boards" id="boards"></div>
-    <div id="navRow" class="nav-row">
-      <button class="nav-btn" data-b="0">1</button>
-      <button class="nav-btn" data-b="1">2</button>
-      <button class="nav-btn" data-b="2">3</button>
-      <button class="nav-btn" data-b="3">4</button>
-      <button class="nav-btn" data-b="4">5</button>
-      <button class="nav-btn" data-b="5">6</button>
-      <button class="nav-btn" data-b="6">7</button>
-      <button class="nav-btn" data-b="7">8</button>
+      <div id="verBadge" class="badge">v2.1.14 · 1784</div>
     </div>
   </div>
+</header>
 
-  <div class="kbwrap">
-    <div class="kb">
-      <div class="kb-row" id="kbRow1"></div>
-      <div class="kb-row" id="kbRow2"></div>
-      <div class="kb-row" id="kbRow3"></div>
-    </div>
+<main>
+  <section class="boards" id="boards"></section>
+</main>
+
+<!-- Sticky bottom: nav + keyboard -->
+<div class="bottom-wrap">
+  <div class="navbar" id="navBar"></div>
+  <div class="kb" id="kb"></div>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="toast hidden" role="dialog" aria-modal="true">
+  <div class="card">
+    <button class="close" id="toastClose" aria-label="Close">×</button>
+    <div id="toastContent"></div>
   </div>
+</div>
 
-  <div id="scrim" class="scrim hidden" aria-hidden="true"></div>
-  <div id="toast" class="toast hidden" role="dialog" aria-modal="true" aria-labelledby="toastTitle">
-    <button id="toastClose" class="toast-close" aria-label="Close">×</button>
-    <h3 id="toastTitle" class="toast-title">Info</h3>
-    <div id="toastBody"></div>
-  </div>
-
-  <script type="module" src="js/game.js?v=2131"></script>
+<script src="js/game.js?v=1784"></script>
 </body>
 </html>
