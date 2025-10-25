@@ -1,3 +1,4 @@
+const VERSION = "1782";
 const VERSION = "1780";
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -224,6 +225,21 @@ function updateKeyboard(guess,res){ for(let i=0;i<WORD_LEN;i++){ const ch=guess[
       if (el) el.textContent = VERSION_LABEL;
     } catch(_){
     }
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setBadge, { once: true });
+  } else {
+    setBadge();
+  }
+})();
+
+
+// v2.1.4 runtime version badge
+(function() {
+  var VERSION_LABEL = "v2.1.4 · 1782";
+  function setBadge() {
+    var el = document.getElementById('versionBadge');
+    if (el) el.textContent = VERSION_LABEL;
   }
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', setBadge, { once: true });
