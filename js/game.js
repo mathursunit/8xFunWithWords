@@ -97,7 +97,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // NAVIGATION (view only)
     function onNavClick(idx){ viewBoard=idx; updateStatus(); updateNavButtons(); boardEl(viewBoard).scrollIntoView({behavior:"smooth",block:"nearest"}); drawPreviewAll(); }
-    function updateNavButtons(){ const btns=keyboardEl.querySelectorAll(".krow-nav .key"); btns.forEach((b,i)=>{ b.classList.toggle("active", i===viewBoard); }); }
+    function updateNavButtons(){ const btns=keyboardEl.querySelectorAll('.krow-nav .key'); btns.forEach((b,i)=>{ b.classList.toggle('active', i===viewBoard); b.classList.toggle('solved', state[i]?.solved===true); }); }
 
     // INPUT to active board only
     function onLetter(ch){ const s=cur(); if(s.solved) return; if(s.invalidRow===s.attempt) return; const row=s.rows[s.attempt]||""; if(row.length>=WORD_LEN) return; s.rows[s.attempt]=row+ch; renderRowActive(activeBoard,s.attempt); drawPreviewAll(); }
@@ -115,7 +115,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const answer=ANSWERS[activeBoard]; const res=evalGuess(guess,answer); paintRowColored(activeBoard,s.attempt,res); updateKeyboard(guess,res);
 
-      if(guess===answer){ s.solved=true; confettiBurstForBoard(activeBoard); if(activeBoard===BOARD_COUNT-1){ if(window.launchConfetti) window.launchConfetti(); } else unlockNext(); }
+      if(guess===answer){ s.solved=true; confettiBurstForBoard(activeBoard); updateNavButtons(); if(activeBoard===BOARD_COUNT-1){ if(window.launchConfetti) window.launchConfetti(); } else unlockNext(); }
       else { s.attempt++; if(s.attempt>=MAX_ROWS) unlockNext(); }
       drawPreviewAll(); 
     }
@@ -150,7 +150,7 @@ document.addEventListener("DOMContentLoaded", () => {
         paintRowColored(bi, r, res);
         s.solved = true;
         s.attempt = Math.max(s.attempt, r+1);
-        confettiBurstForBoard(bi);
+        confettiBurstForBoard(bi); updateNavButtons();
         if(bi===BOARD_COUNT-1){
           if(window.launchConfetti) window.launchConfetti();
         } else {

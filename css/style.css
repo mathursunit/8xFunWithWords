@@ -47,3 +47,5 @@ footer{margin:6px 0 12px 0;color:#666;text-align:center}
 
 @media (max-width:900px){#boards{grid-template-columns:repeat(2,1fr)}.tile{width:34px;height:34px;font-size:16px}}
 @media (max-width:520px){#boards{grid-template-columns:1fr}.tile{width:34px;height:34px}}
+
+.krow-nav .key.solved{ background: var(--green); color:#fff; border-color: var(--green); }
