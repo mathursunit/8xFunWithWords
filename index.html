@@ -1,54 +1,65 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
-  <title>8× Fun With Words — Sequence Edition</title>
-  <link rel="icon" href="favicon.png"/>
-  <link href="css/style.css?v=1781" rel="stylesheet"/>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>8× Fun With Words — Sequence</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css?v=2111">
 </head>
 <body>
   <header class="topbar">
     <div class="brand">
-      <img src="assets/sunsar-logo.svg" alt="SunSar · 8× Fun With Words" class="logo"/>
-      <div class="tagline">Sequence Edition · Daily answers rotate at 8:00 AM ET</div>
+      <img src="assets/sunsar-logo.png" alt="SunSar — 8× Fun With Words" class="logo">
+      <div class="subtitle">Sequence Edition · Daily answers rotate at 8:00 AM ET</div>
     </div>
-    <nav class="actions">
-      <button class="link" id="statsBtn" aria-haspopup="dialog">Stats</button>
-      <button class="link" id="aboutBtn" aria-haspopup="dialog">About</button>
-      <span class="themeWrap">
+    <div class="actions">
+      <nav class="links">
+        <button id="statsBtn" class="link">Stats</button>
+        <button id="aboutBtn" class="link">About</button>
+      </nav>
+      <div class="theme">
         <span>Theme</span>
-        <button class="chip" id="themeLight">Light</button>
-        <button class="chip" id="themeDark">Dark</button>
-      </span>
-      <span id="verBadge" class="ver"> v2.1.11 · 1781</span>
-    </nav>
+        <button class="chip" data-theme="light" id="lightBtn">Light</button>
+        <button class="chip" data-theme="dark" id="darkBtn">Dark</button>
+      </div>
+      <div id="verBadge" class="ver">v2.1.11 · 1779</div>
+    </div>
   </header>
 
-  <main id="gameRoot">
-    <section id="boardsWrap" class="boardsWrap"></section>
+  <main id="app">
+    <section id="boards" class="boards"></section>
 
-    <!-- Navigator pills always visible and do NOT change active board (view only) -->
-    <div id="navPills" class="navPills" aria-label="Board navigator (view)"></div>
+    <div id="navButtons" class="nav-buttons" aria-label="Board navigation">
+      <button class="nav-btn" data-board="1">1</button>
+      <button class="nav-btn" data-board="2">2</button>
+      <button class="nav-btn" data-board="3">3</button>
+      <button class="nav-btn" data-board="4">4</button>
+      <button class="nav-btn" data-board="5">5</button>
+      <button class="nav-btn" data-board="6">6</button>
+      <button class="nav-btn" data-board="7">7</button>
+      <button class="nav-btn" data-board="8">8</button>
+    </div>
 
-    <!-- On-screen keyboard -->
-    <section id="kbWrap" class="kbWrap">
-      <div id="keyboard" class="keyboard" aria-label="On-screen keyboard"></div>
+    <section id="keyboard" class="keyboard">
+      <div class="row row1"></div>
+      <div class="row row2"></div>
+      <div class="row row3"></div>
     </section>
   </main>
 
-  <!-- Centered Toast / Modal -->
-  <div id="toast" class="toast hidden" role="dialog" aria-modal="true">
-    <div class="toastCard">
-      <button class="toastClose" id="toastClose" aria-label="Close">×</button>
+  <!-- Toast / modal -->
+  <div id="toast" class="toast hide">
+    <div class="card">
+      <button class="close" id="toastClose" aria-label="Close">×</button>
       <div id="toastBody"></div>
     </div>
   </div>
 
-  <script>
-    window.FWW_BUILD = "1781";
-  </script>
-  <script src="assets/confetti.js?v=1781"></script>
-  <script src="js/game.js?v=1781"></script>
+  <canvas id="confetti" class="confetti"></canvas>
+
+  <script src="js/game.js?v=2111"></script>
 </body>
 </html>
