@@ -1,48 +1,54 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>8× Fun With Words — Sequence Edition</title>
-<link rel="icon" type="image/png" href="favicon.png">
-<link rel="stylesheet" href="css/style.css?v=2.1.10">
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+  <title>8× Fun With Words — Sequence Edition</title>
+  <link rel="icon" href="favicon.png"/>
+  <link href="css/style.css?v=1781" rel="stylesheet"/>
 </head>
 <body>
-<header class="site">
-  <div class="title-line">
-    <img class="logo" src="assets/logo.svg" alt="SunSar — 8x Fun With Words">
-    <div>Sequence Edition · Daily answers rotate at 8:00 AM ET</div>
+  <header class="topbar">
+    <div class="brand">
+      <img src="assets/sunsar-logo.svg" alt="SunSar · 8× Fun With Words" class="logo"/>
+      <div class="tagline">Sequence Edition · Daily answers rotate at 8:00 AM ET</div>
+    </div>
+    <nav class="actions">
+      <button class="link" id="statsBtn" aria-haspopup="dialog">Stats</button>
+      <button class="link" id="aboutBtn" aria-haspopup="dialog">About</button>
+      <span class="themeWrap">
+        <span>Theme</span>
+        <button class="chip" id="themeLight">Light</button>
+        <button class="chip" id="themeDark">Dark</button>
+      </span>
+      <span id="verBadge" class="ver"> v2.1.11 · 1781</span>
+    </nav>
+  </header>
+
+  <main id="gameRoot">
+    <section id="boardsWrap" class="boardsWrap"></section>
+
+    <!-- Navigator pills always visible and do NOT change active board (view only) -->
+    <div id="navPills" class="navPills" aria-label="Board navigator (view)"></div>
+
+    <!-- On-screen keyboard -->
+    <section id="kbWrap" class="kbWrap">
+      <div id="keyboard" class="keyboard" aria-label="On-screen keyboard"></div>
+    </section>
+  </main>
+
+  <!-- Centered Toast / Modal -->
+  <div id="toast" class="toast hidden" role="dialog" aria-modal="true">
+    <div class="toastCard">
+      <button class="toastClose" id="toastClose" aria-label="Close">×</button>
+      <div id="toastBody"></div>
+    </div>
   </div>
-  <div class="right">
-    <span id="statsLink" class="link">Stats</span>
-    <span id="aboutLink" class="link">About</span>
-    <span id="themeLabel">Theme</span>
-    <span class="chip" id="lightBtn">Light</span>
-    <span class="chip" id="darkBtn">Dark</span>
-    <span id="verBadge" class="badge">v2.1.10 · 1779</span>
-  </div>
-</header>
 
-<main id="app" class="grid" aria-live="polite"></main>
-
-<!-- Navigator and Keyboard -->
-<div class="navbar" id="navRow"></div>
-<div class="kb" id="kb"></div>
-
-<!-- Toasts -->
-<div id="statsToast" class="toast" role="dialog" aria-modal="true" aria-label="Statistics">
-  <div class="x" onclick="this.parentElement.classList.remove('show')">✕</div>
-  <h4>Daily Stats</h4>
-  <div id="statsBody">Loading…</div>
-</div>
-<div id="aboutToast" class="toast" role="dialog" aria-modal="true" aria-label="About">
-  <div class="x" onclick="this.parentElement.classList.remove('show')">✕</div>
-  <h4>About</h4>
-  <p>Disclaimer: This is a fun project to learn coding and has no commercial value. All rights are with the amazing Britannica only.</p>
-</div>
-
-<div class="footer" id="footerNote">Minimal Wordle-like UI · 5 letters · 15 tries · © You</div>
-
-<script src="js/game.js?v=1779" defer></script>
+  <script>
+    window.FWW_BUILD = "1781";
+  </script>
+  <script src="assets/confetti.js?v=1781"></script>
+  <script src="js/game.js?v=1781"></script>
 </body>
 </html>

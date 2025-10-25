@@ -1,1 +1,1 @@
-v2.0.4; cache-bust v=1762 — persist submitted guesses on all boards (ghost gray) until activation; recolor on activation; navigation doesn't unlock.
+# 8× Fun With Words — Sequence Edition (v2.1.11 · 1781)
