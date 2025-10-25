@@ -144,7 +144,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function confettiBurstForBoard(bi){
       try{
-        if(window.ensureConfetti){ return window.ensureConfetti(function(){ confettiBurstForBoard(bi); }); }
+        if(!window.confetti && window.ensureConfetti){ window.ensureConfetti(function(){ if(window.confetti) confettiBurstForBoard(bi); }); return; }
         if(!window.confetti) return;
         const el = boardEl(bi);
         const r = el.getBoundingClientRect();
