@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="120" viewBox="0 0 512 120">
+  <rect fill="none" width="512" height="120"/>
+  <text x="10" y="80" font-size="64" font-family="Inter, Arial, Helvetica, sans-serif" fill="#f59e0b">Sun</text>
+  <text x="170" y="80" font-size="64" font-family="Inter, Arial, Helvetica, sans-serif" fill="#3b82f6">Sar</text>
+  <circle cx="300" cy="30" r="10" fill="#f59e0b"/>
+</svg>

@@ -1,391 +1,210 @@
-window.APP_BUILD = window.APP_BUILD || "1787";
-document.addEventListener("DOMContentLoaded", () => {
-const WORD_LEN = 5;
-  const MAX_ROWS = 15;
-  const BOARD_COUNT = 8;
-  const VALID_TXT_URL = "assets/valid_words.txt?v=1787?v=" + window.APP_BUILD;
 
-  (function initTheme(){
-    try{
-      const saved = localStorage.getItem("8xfww-theme");
-      const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-      const theme = (saved === "light" || saved === "dark") ? saved : (prefersDark ? "dark" : "light");
-      document.documentElement.setAttribute("data-theme", theme);
-      const radios = document.querySelectorAll('input[name="theme"]');
-      radios.forEach(r=>{ r.checked = (r.value === theme); r.addEventListener("change", (e)=>{ const t=e.target.value; document.documentElement.setAttribute("data-theme", t); localStorage.setItem("8xfww-theme", t); }); });
-    }catch(e){ console.warn("theme init", e); }
+(() => {
+  const VERSION = window.__APP_VERSION__ || 'v?';
+  const BUILD = window.__APP_BUILD__ || 0;
+
+  // DOM helpers
+  const $ = (s, el=document) => el.querySelector(s);
+  const $$ = (s, el=document) => [...el.querySelectorAll(s)];
+
+  // Badge
+  (function setBadge(){
+    const b = $('#verBadge');
+    if (b) b.textContent = `${VERSION} · ${BUILD}`;
   })();
 
-  function getETParts() {
-    const fmt = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", hour12: false });
-    const parts = Object.fromEntries(fmt.formatToParts(new Date()).map(p => [p.type, p.value]));
-    return {year: +parts.year, month: +parts.month, day: +parts.day, hour: +parts.hour};
-  }
-  function etMidnightUTC(y,m,d) { return Date.UTC(y, m-1, d); }
-  function dayIndexET() { const {year,month,day,hour} = getETParts(); const EPOCH=Date.UTC(2025,0,1); let t=etMidnightUTC(year,month,day); if(hour<8) t-=86400000; return Math.floor((t-EPOCH)/86400000); }
+  // Theme
+  const themeKey = 'xfww.theme';
+  const setTheme = t => { document.documentElement.classList.toggle('dark', t==='dark'); localStorage.setItem(themeKey,t); };
+  $('#themeLight').onclick=()=>setTheme('light');
+  $('#themeDark').onclick=()=>setTheme('dark');
+  setTheme(localStorage.getItem(themeKey)||'light');
 
-  async function loadValidList() {
-    try {
-      const r = await fetch(VALID_TXT_URL, { cache: "no-store" });
-      if (!r.ok) throw new Error("no valid_words.txt?v=1787");
-      const raw = await r.text();
-      const list = raw.split(/\r?\n|[\s,]+/).map(w=>w.trim().toUpperCase()).filter(w=>/^[A-Z]{5}$/.test(w));
-      return Array.from(new Set(list));
-    } catch (e) {
-      console.warn("fallback WORDS", e);
-      const fb = (window.WORDS||[]).map(w=>String(w).trim().toUpperCase()).filter(w=>/^[A-Z]{5}$/.test(w));
-      return fb.length?fb:["APPLE","BRAIN","CANDY","DOUBT","EAGER","FRAIL","GHOST","HONEY"];
-    }
-  }
-  function selectAnswers(validList) {
-    if (!validList.length) return ["APPLE","BRAIN","CANDY","DOUBT","EAGER","FRAIL","GHOST","HONEY"];
-    const idx = dayIndexET();
-    const start = (idx*BOARD_COUNT) % validList.length;
-    const out=[]; for (let i=0;i<BOARD_COUNT;i++) out.push(validList[(start+i)%validList.length]);
-    return out;
+  // Params
+  const BOARDS=8, TRIES=15, WORDLEN=5;
+
+  // Day key (8 AM ET)
+  function etKey(){
+    const now = new Date();
+    const et = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
+    if (et.getHours() < 8) et.setDate(et.getDate()-1);
+    return et.toISOString().slice(0,10);
   }
 
-  (async function init(){
-    const validList = await loadValidList();
-    const ANSWERS = selectAnswers(validList);
+  // Persistence keys
+  const NS='xfww.v2.1.9';
+  const DAY = etKey();
 
-    let activeBoard=0, viewBoard=0, maxUnlocked=0;
-    const state = ANSWERS.map(()=>({rows:Array(MAX_ROWS).fill(""),attempt:0,solved:false,invalidRow:-1}));
+  // State
+  let answers = Array(BOARDS).fill('APPLE');
+  const state = {
+    day: DAY,
+    active: 0,
+    guesses: Array.from({length:BOARDS}, ()=>[]), // per-board arrays of words
+    solved: Array(BOARDS).fill(false),
+    keyboard: {}
+  };
 
-    const boardsEl=document.getElementById("boards");
-    const keyboardEl=document.getElementById("keyboard");
-    const boardNumEl=document.getElementById("boardNum");
-    const activeNumEl=document.getElementById("activeNum");
-    const resetBtn=document.getElementById("resetBtn");
-    const validSet = new Set(validList);
-
-    buildBoards(); buildKeyboard(); updateLockUI(); updateStatus(); updateNavButtons(); drawPreviewAll();
-
-    window.addEventListener("keydown",(e)=>{ const k=e.key; if(/^[a-z]$/i.test(k)) onLetter(k.toUpperCase()); else if(k==="Backspace") onBackspace(); else if(k==="Enter") onEnter(); });
-    resetBtn?.addEventListener("click", resetGame);
-
-    function buildBoards(){
-      boardsEl.innerHTML="";
-      for (let i=0;i<BOARD_COUNT;i++){
-        const b=document.createElement("section"); b.className="board"+(i===0?"":" locked"); b.dataset.index=i;
-        const title=document.createElement("div"); title.className="board-title"; title.textContent="Board "+(i+1); b.appendChild(title);
-        const grid=document.createElement("div"); grid.className="grid";
-        for (let r=0;r<MAX_ROWS;r++) for (let c=0;c<WORD_LEN;c++){ const t=document.createElement("div"); t.className="tile"; grid.appendChild(t);}
-        b.appendChild(grid); boardsEl.appendChild(b);
-      }
+  // Save/Load
+  function save(){
+    const root = JSON.parse(localStorage.getItem(NS)||'{}');
+    root[DAY] = { active: state.active, guesses: state.guesses, solved: state.solved, keyboard: state.keyboard };
+    localStorage.setItem(NS, JSON.stringify(root));
+  }
+  function load(){
+    const root = JSON.parse(localStorage.getItem(NS)||'{}');
+    const d = root[DAY];
+    if (d){
+      state.active = d.active||0;
+      state.guesses = d.guesses||state.guesses;
+      state.solved  = d.solved||state.solved;
+      state.keyboard= d.keyboard||state.keyboard;
     }
-    function buildKeyboard(){
-      keyboardEl.innerHTML="";
-      const nav=document.createElement("div"); nav.className="krow krow-nav";
-      for (let i=1;i<=BOARD_COUNT;i++){ const k=mk("div","key",String(i)); k.dataset.idx=String(i-1); k.title="Jump to board "+i; k.addEventListener("click",()=>onNavClick(i-1)); nav.appendChild(k);}
-      const rows=["QWERTYUIOP","ASDFGHJKL","ZXCVBNM"];
-      const r1=document.createElement("div"); r1.className="krow";
-      const r2=document.createElement("div"); r2.className="krow";
-      const r3=document.createElement("div"); r3.className="krow";
-      for (const ch of rows[0]) r1.appendChild(mkKey(ch));
-      for (const ch of rows[1]) r2.appendChild(mkKey(ch));
-      r3.appendChild(mkKey("ENTER","wide"));
-      for (const ch of rows[2]) r3.appendChild(mkKey(ch));
-      r3.appendChild(mkKey("⌫","wide"));
-      keyboardEl.append(nav,r1,r2,r3);
-    }
-    function mkKey(label,extra){ const key=mk("div","key"+(extra?" "+extra:""),label); key.addEventListener("click",()=>{ if(label==="ENTER") onEnter(); else if(label==="⌫") onBackspace(); else onLetter(label); }); return key; }
-    function mk(tag,cls,txt){ const el=document.createElement(tag); el.className=cls; el.textContent=txt; return el;}
-    function cur(){return state[activeBoard];}
-    function boardEl(i){return boardsEl.children[i];}
+  }
 
-    // NAVIGATION (view only)
-    function onNavClick(idx){ viewBoard=idx; updateStatus(); updateNavButtons(); boardEl(viewBoard).scrollIntoView({behavior:"smooth",block:"nearest"}); drawPreviewAll(); }
-    function updateNavButtons(){ const btns=keyboardEl.querySelectorAll('.krow-nav .key'); btns.forEach((b,i)=>{ b.classList.toggle('active', i===viewBoard); b.classList.toggle('solved', state[i]?.solved===true); }); }
-
-    // INPUT to active board only
-    function onLetter(ch){ const s=cur(); if(s.solved) return; if(s.invalidRow===s.attempt) return; const row=s.rows[s.attempt]||""; if(row.length>=WORD_LEN) return; s.rows[s.attempt]=row+ch; renderRowActive(activeBoard,s.attempt); drawPreviewAll(); }
-    function onBackspace(){ const s=cur(); if(s.solved) return; let row=s.rows[s.attempt]||""; if(!row.length){ if(s.invalidRow===s.attempt){clearInvalidRow(activeBoard,s.attempt); s.invalidRow=-1;} drawPreviewAll(); return; } s.rows[s.attempt]=row.slice(0,-1); renderRowActive(activeBoard,s.attempt); if(s.invalidRow===s.attempt){clearInvalidRow(activeBoard,s.attempt); s.invalidRow=-1;} drawPreviewAll(); }
-    function onEnter(){ 
-      const s=cur(); if(s.solved) return; if(s.invalidRow===s.attempt) return; 
-      const guess=(s.rows[s.attempt]||"").toUpperCase(); if(guess.length!==WORD_LEN) return; 
-      if(!validSet.has(guess)){markInvalidRow(activeBoard,s.attempt); s.invalidRow=s.attempt; return;}
-
-      // Mirror guess (ghost) on every UNSOLVED board; keep rows aligned.
-      for(let bi=0; bi<BOARD_COUNT; bi++){ 
-        const sb=state[bi]; if(sb.solved) continue; if(sb.attempt>=MAX_ROWS) continue; 
-        if(!sb.rows[sb.attempt]) sb.rows[sb.attempt]=guess; paintRowGhost(bi,sb.attempt); if(bi!==activeBoard) sb.attempt++; 
-      }
-
-      const answer=ANSWERS[activeBoard]; const res=evalGuess(guess,answer); paintRowColored(activeBoard,s.attempt,res); updateKeyboard(guess,res);
-
-      if(guess===answer){ s.solved=true; confettiBurstForBoard(activeBoard); updateNavButtons(); if(activeBoard===BOARD_COUNT-1){ if(window.launchConfetti) window.launchConfetti(); } else unlockNext(); }
-      else { s.attempt++; if(s.attempt>=MAX_ROWS) unlockNext(); }
-      drawPreviewAll(); 
-    }
-
-    // Preview while typing: mirror partial word to other boards' current rows in ghost
-    function drawPreviewAll(){ 
-      const sCur=cur(); const curStr=(sCur.rows[sCur.attempt]||""); 
-      for(let bi=0; bi<BOARD_COUNT; bi++){ 
-        const s=state[bi]; if(s.solved) continue; const ri=s.attempt; if(ri>=MAX_ROWS) continue; 
-        if(bi===activeBoard) { renderRowActive(bi,ri); continue; }
-        const existing=s.rows[ri]||""; const str = existing.length===WORD_LEN ? existing : (existing || curStr); setRowGhost(bi,ri,str,true); 
-      } 
-    }
-
-    // Render helpers
-    function setRowGhost(bi,ri,str,ghost=true){ const b=boardEl(bi); const tiles=b.querySelectorAll(".tile"); const start=ri*WORD_LEN; for(let i=0;i<WORD_LEN;i++){ const t=tiles[start+i]; t.classList.remove("correct","present","absent","invalid"); if(ghost) t.classList.add("ghost"); else t.classList.remove("ghost"); t.textContent=str[i] || ""; } }
-    function renderRowActive(bi,ri){ const s=state[bi]; const str=s.rows[ri]||""; setRowGhost(bi,ri,str,false); }
-    function markInvalidRow(bi,ri){ const b=boardEl(bi); const tiles=b.querySelectorAll(".tile"); const start=ri*WORD_LEN; for(let i=0;i<WORD_LEN;i++) tiles[start+i].classList.add("invalid"); }
-    function clearInvalidRow(bi,ri){ const b=boardEl(bi); const tiles=b.querySelectorAll(".tile"); const start=ri*WORD_LEN; for(let i=0;i<WORD_LEN;i++) tiles[start+i].classList.remove("invalid"); }
-    function evalGuess(guess,answer){ const res=Array(WORD_LEN).fill("absent"); const cnt={}; for(const ch of answer) cnt[ch]=(cnt[ch]||0)+1; for(let i=0;i<WORD_LEN;i++) if(guess[i]===answer[i]){ res[i]="correct"; cnt[guess[i]]--; } for(let i=0;i<WORD_LEN;i++) if(res[i]!=="correct"){ const ch=guess[i]; if((cnt[ch]||0)>0){ res[i]="present"; cnt[ch]--; } } return res; }
-    function paintRowColored(bi,ri,res){ const b=boardEl(bi); const tiles=b.querySelectorAll(".tile"); const start=ri*WORD_LEN; const word=state[bi].rows[ri]; for(let i=0;i<WORD_LEN;i++){ const t=tiles[start+i]; t.classList.remove("ghost"); t.textContent=word[i] || ""; t.classList.add("flip"); setTimeout(()=>{ t.classList.remove("flip"); t.classList.add(res[i]); },80+i*30); } }
-    function paintRowGhost(bi,ri){ const s=state[bi]; const str=s.rows[ri]||""; setRowGhost(bi,ri,str,true); }
-    function paintExistingAsColored(bi){ const s=state[bi]; for(let r=0;r<s.attempt;r++){ const guess=s.rows[r]; const res=evalGuess(guess,ANSWERS[bi]); paintRowColored(bi,r,res); } renderRowActive(bi,s.attempt); }
-    
-  function autoSolveIfPreGuessed(bi){
-    const s = state[bi];
-    const answer = ANSWERS[bi];
-    for(let r=0; r<=s.attempt; r++){
-      const g = (s.rows[r]||"").toUpperCase();
-      if(g.length===WORD_LEN && g===answer){
-        const res = evalGuess(g, answer);
-        paintRowColored(bi, r, res);
-        s.solved = true;
-        s.attempt = Math.max(s.attempt, r+1);
-        confettiBurstForBoard(bi); updateNavButtons();
-        if(bi===BOARD_COUNT-1){
-          if(window.launchConfetti) window.launchConfetti();
-        } else {
-          unlockNext();
+  // Build UI
+  function build(){
+    const boards = $('#boards'); boards.innerHTML='';
+    for(let b=0;b<BOARDS;b++){
+      const sec = document.createElement('section'); sec.className='board'; sec.dataset.idx=b;
+      sec.innerHTML = `<h3>Board ${b+1}</h3>`;
+      const grid = document.createElement('div'); grid.className='grid';
+      for(let r=0;r<TRIES;r++){
+        for(let c=0;c<WORDLEN;c++){
+          const t = document.createElement('div'); t.className='tile'; grid.appendChild(t);
         }
-        return true;
       }
+      sec.appendChild(grid); boards.appendChild(sec);
     }
-    return false;
+    // nav
+    const nav = $('#navRow'); nav.innerHTML='';
+    for(let i=0;i<BOARDS;i++){
+      const btn = document.createElement('button'); btn.className='navBtn'; btn.textContent=String(i+1); btn.dataset.idx=i;
+      btn.onclick = ()=>{ view=i; paint(); };
+      nav.appendChild(btn);
+    }
+    // keyboard
+    const k = $('#keyboard'); k.innerHTML='';
+    const add = (arr)=>arr.forEach(l=>{
+      const b=document.createElement('button'); b.className='key'; b.textContent=l; b.dataset.key=l;
+      if(l==='ENTER'||l==='⌫') b.classList.add('wide'); if(l==='⌫') b.dataset.key='BACK';
+      b.onclick=()=>press(l);
+      k.appendChild(b);
+    });
+    add(['Q','W','E','R','T','Y','U','I','O','P']);
+    add(['A','S','D','F','G','H','J','K','L']);
+    add(['ENTER','Z','X','C','V','B','N','M','⌫']);
   }
-function updateKeyboard(guess,res){ for(let i=0;i<WORD_LEN;i++){ const ch=guess[i]; const k=findKey(ch); if(!k) continue; if(res[i]==="correct"){k.classList.remove("present","absent");k.classList.add("correct");} else if(res[i]==="present"&&!k.classList.contains("correct")){k.classList.remove("absent");k.classList.add("present");} else if(!k.classList.contains("correct")&&!k.classList.contains("present")){k.classList.add("absent");} } }
-    function findKey(ch){ return Array.from(keyboardEl.querySelectorAll(".key")).find(k=>k.textContent===ch)||null; }
 
-    function confettiBurstForBoard(bi){
-      try{
-        const el = boardEl(bi);
-        const r = el.getBoundingClientRect();
-        const cx = (r.left + r.width / 2) / window.innerWidth;
-        const cy = (r.top + r.height / 2) / window.innerHeight;
-        window.confetti({ particleCount: 90, spread: 80, origin: { x: cx, y: cy }, ticks: 90 });
-      }catch(e){}
-    }
+  // Word list -> answers
+  async function loadAnswers(){
+    const res = await fetch(`assets/valid_words.txt?v=${BUILD}`);
+    const txt = await res.text();
+    const list = txt.split(/\r?\n/).map(s=>s.trim()).filter(Boolean).map(s=>s.toUpperCase());
+    const dayIndex = Math.floor(new Date(DAY).getTime()/86400000);
+    const start = (dayIndex * 8) % Math.max(1, list.length-8);
+    answers = list.slice(start, start+8).map(w=>w.toUpperCase());
+  }
 
-    function unlockNext(){ if(activeBoard<BOARD_COUNT-1){ activeBoard=activeBoard+1; if(activeBoard>maxUnlocked) maxUnlocked=activeBoard; viewBoard=activeBoard; paintExistingAsColored(activeBoard);
-    if(autoSolveIfPreGuessed(activeBoard)) return; updateLockUI(); updateStatus(); updateNavButtons(); boardEl(viewBoard).scrollIntoView({behavior:"smooth",block:"nearest"}); } }
-    function updateLockUI(){ for(let i=0;i<BOARD_COUNT;i++){ const b=boardEl(i); if(i<=maxUnlocked) b.classList.remove("locked"); else b.classList.add("locked"); } }
-    function updateStatus(){ boardNumEl.textContent=(viewBoard+1); activeNumEl.textContent=(activeBoard+1); }
+  // Input buffer spans across all boards (visual)
+  let buffer = '';
+  function press(k){
+    if(k==='ENTER'){ submit(); return; }
+    if(k==='⌫' || k==='BACK'){ buffer = buffer.slice(0,-1); paint(); return; }
+    if(k.length===1 && /^[A-Z]$/.test(k)){ buffer = (buffer + k).slice(0,WORDLEN); paint(); }
+  }
+  window.addEventListener('keydown',e=>{
+    if(e.key==='Enter') return press('ENTER');
+    if(e.key==='Backspace') return press('⌫');
+    if(/^[a-z]$/i.test(e.key)) return press(e.key.toUpperCase());
+  });
 
-    function resetGame(){ for(let i=0;i<state.length;i++) state[i]={rows:Array(MAX_ROWS).fill(""),attempt:0,solved:false,invalidRow:-1}; activeBoard=0; viewBoard=0; maxUnlocked=0; for(let i=0;i<BOARD_COUNT;i++){ const b=boardEl(i); b.querySelectorAll(".tile").forEach(t=>{t.className="tile"; t.textContent="";}); } buildKeyboard(); updateLockUI(); updateStatus(); updateNavButtons(); drawPreviewAll(); }
-  })().catch(err=>{ console.error(err); const s=document.getElementById("status"); if(s) s.textContent="Error loading game: "+err; });
-});
+  function colorFor(answer, word, i){
+    const ch = word[i];
+    if(answer[i]===ch) return 'G';
+    if(answer.includes(ch)) return 'Y';
+    return 'B';
+  }
 
-/* === 2.1.1 add-on (non-destructive) === */
-(function(){
-  try{
-    // Number-key shortcuts 1..8 to VIEW boards only
-    window.addEventListener('keydown', function(e){
-      if (/^[1-8]$/.test(e.key) && typeof window.onNavClick === 'function') {
-        try { window.onNavClick(parseInt(e.key,10)-1); } catch(_) {}
-      }
+  // Paint everything
+  let view = 0;
+  function paint(){
+    // nav
+    $$('.navBtn').forEach((b,i)=>{
+      b.classList.toggle('active', i===view);
+      b.classList.toggle('solved', state.solved[i]);
     });
 
-    function updateNavSolved(){
-      try{
-        var nav = document.querySelectorAll('.krow-nav .key');
-        if(!nav || !nav.length) return;
-        var st = (typeof window.state !== 'undefined') ? window.state : null;
-        for(var i=0;i<nav.length;i++){
-          var solved = false;
-          if (st && st[i] && st[i].solved === true) solved = true;
-          nav[i].classList.toggle('solved', solved);
+    // tiles
+    for(let b=0;b<BOARDS;b++){
+      const grid = $(`.board[data-idx="${b}"] .grid`);
+      [...grid.children].forEach(t=>{ t.className='tile'; t.textContent=''; });
+      // fill rows with existing guesses across this board's grid
+      const rows = state.guesses[b].length;
+      for(let r=0;r<rows;r++){
+        const w = state.guesses[b][r];
+        for(let i=0;i<WORDLEN;i++){
+          const t = grid.children[r*WORDLEN+i];
+          t.textContent = w[i]||'';
+          if(b===state.active || state.solved[b]){
+            t.classList.add(colorFor(answers[b], w, i));
+          }else{
+            t.classList.add('faded');
+          }
         }
-      }catch(e){}
-    }
-    // Run regularly so we don't need to hook internals
-    setInterval(updateNavSolved, 750);
-    // Also on first paint
-    if (document.readyState === 'complete') updateNavSolved();
-    else window.addEventListener('load', updateNavSolved);
-  }catch(e){}
-})();
-
-
-// v2.1.3: single source-of-truth version badge
-(function(){
-  var VERSION_LABEL = "v2.1.3 · 1785";
-  function setBadge(){
-    try {
-      var el = document.getElementById('versionBadge');
-      if (el) el.textContent = VERSION_LABEL;
-    } catch(_){
+      }
+      // typing buffer appears on the next row for *all* boards as faded
+      const row = rows;
+      if(row<15){
+        for(let i=0;i<WORDLEN;i++){
+          const t = grid.children[row*WORDLEN+i];
+          t.textContent = buffer[i]||'';
+          if(!(b===state.active || state.solved[b])) t.classList.add('faded');
+        }
+      }
     }
   }
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', setBadge, { once: true });
-  } else {
-    setBadge();
-  }
-})();
 
-
-// v2.1.5 runtime version badge
-(function() {
-  var VERSION_LABEL = "v2.1.5 · 1785";
-  function setBadge() {
-    var el = document.getElementById('versionBadge');
-    if (el) el.textContent = VERSION_LABEL;
-  }
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', setBadge, { once: true });
-  } else {
-    setBadge();
-  }
-})();
-
-(function(){try{var el=document.getElementById('versionBadge'); if(el) el.textContent='v2.1.5 · 1785';}catch(_){
-}})();
-
-// Runtime version badge writer
-(function(){
-  var label = "v2.1.6 · 1786";
-  function setBadge(){ var el = document.getElementById('versionBadge'); if(el) el.textContent = label; }
-  if(document.readyState === 'loading'){ document.addEventListener('DOMContentLoaded', setBadge, {once:true}); } else { setBadge(); }
-})();
-
-
-// === Progress & Stats (localStorage) + Nav sticky solved state ===
-const LS_STATE_KEY = 'fww_state_v2';
-const LS_STATS_KEY = 'fww_stats_v2';
-
-function etNow(){ return new Date(new Date().toLocaleString('en-US',{timeZone:'America/New_York'})); }
-function dayKey(){
-  const d=etNow();
-  if(d.getHours()<8) d.setDate(d.getDate()-1);
-  return d.toISOString().slice(0,10);
-}
-
-function loadState(){
-  try{ const raw = localStorage.getItem(LS_STATE_KEY);
-    if(!raw) return null;
-    const obj = JSON.parse(raw);
-    if(obj.dayKey !== dayKey()) return null;
-    return obj;
-  }catch(e){ return null; }
-}
-function saveState(obj){
-  try{ localStorage.setItem(LS_STATE_KEY, JSON.stringify(obj)); }catch(e){}
-}
-
-function loadStats(){
-  try{ return JSON.parse(localStorage.getItem(LS_STATS_KEY)||'{}'); }catch(_){
-    return {};
-  }
-}
-function saveStats(s){ try{ localStorage.setItem(LS_STATS_KEY, JSON.stringify(s)); }catch(_ ){} }
-
-function incStreak(stats, completedToday){
-  const today = dayKey();
-  if(!stats.meta) stats.meta = {streak:0,best:0,lastComplete:''};
-  if(completedToday){
-    const prev = new Date(today); prev.setDate(prev.getDate()-1);
-    const prevKey = prev.toISOString().slice(0,10);
-    if(stats.meta.lastComplete === prevKey) stats.meta.streak += 1;
-    else stats.meta.streak = 1;
-    if(stats.meta.streak>stats.meta.best) stats.meta.best = stats.meta.streak;
-    stats.meta.lastComplete = today;
-  }
-}
-
-// Hook points (these functions must exist in the main game code):
-// - getGuessesByBoard(): returns array of arrays of guess strings per board
-// - getSolvedFlags(): returns boolean array [8] whether board solved
-// - getActiveBoard(): number 0..7
-// - setFromSavedState(state): rehydrates UI from state (we implement a thin adapter below)
-// - onBoardSolved(boardIndex): is called by game when a board is solved (we wrap to update stats & nav)
-
-(function attachPersistence(){ 
-  const st = loadState();
-  if(st && window.setFromSavedState) window.setFromSavedState(st);
-
-  // persist on each guess submit if hook exposed
-  if(!window._persistHookInstalled && window.onGuessCommitted){ 
-    const orig = window.onGuessCommitted;
-    window.onGuessCommitted = function(){ 
-      try{ 
-        const state = {
-          dayKey: dayKey(),
-          guesses: window.getGuessesByBoard ? window.getGuessesByBoard() : [],
-          solved: window.getSolvedFlags ? window.getSolvedFlags() : [],
-          active: window.getActiveBoard ? window.getActiveBoard() : 0
-        };
-        saveState(state);
-      }catch(_){}
-      return orig.apply(this, arguments);
-    };
-    window._persistHookInstalled = true;
+  function submit(){
+    if(buffer.length!==WORDLEN) return;
+    const w = buffer; buffer='';
+    const b = state.active;
+    if(state.solved[b]) return;
+    // Accept only 5-letter (we're using the big list as answers; you can add rejection UI later)
+    state.guesses[b].push(w);
+    // check
+    if(w===answers[b]){
+      state.solved[b]=true;
+      const btn = $(`.navBtn[data-idx="${b}"]`); if(btn) btn.classList.add('solved');
+      window.fwwConfetti();
+      if(b<BOARDS-1) state.active=b+1, view=b+1;
+    }else{
+      // ensure we don't exceed TRIES (implicitly handled by render buffer)
+    }
+    save(); paint();
   }
 
-  // wrap board-solved for stats and sticky nav
-  if(!window._solvedWrapInstalled && window.onBoardSolved){ 
-    const origSolved = window.onBoardSolved;
-    window.onBoardSolved = function(idx){
-      const res = origSolved.apply(this, arguments);
-      try{ 
-        // mark nav button solved (sticky)
-        const btn = document.querySelector('.nav-btn[data-idx="'+idx+'"]');
-        if(btn) btn.classList.add('solved');
-
-        // stats
-        const stats = loadStats();
-        const tkey = dayKey();
-        if(!stats.days) stats.days = {};
-        if(!stats.days[tkey]) stats.days[tkey] = { solved:0, boards: Array(8).fill(0) };
-        if(!stats.days[tkey].boards[idx]){ stats.days[tkey].boards[idx]=1; stats.days[tkey].solved+=1; }
-        const completed = stats.days[tkey].solved>=8;
-        incStreak(stats, completed);
-        saveStats(stats);
-      }catch(_){}
-      return res;
-    };
-    window._solvedWrapInstalled = true;
+  // Stats toast
+  function showStats(){
+    const solved = state.solved.filter(Boolean).length;
+    const body = $('#toastBody');
+    body.innerHTML = `<div class="stats">
+      <div class="row"><span>Date (ET)</span><b>${DAY}</b></div>
+      <div class="row"><span>Solved</span><b>${solved}/8</b></div>
+      <div class="row"><span>Version</span><b>${VERSION} · ${BUILD}</b></div>
+    </div>`;
+    $('#toast').classList.remove('hidden');
   }
-})();
+  $('#statsLink').addEventListener('click', (e)=>{ e.preventDefault(); showStats(); });
+  $('#toastClose').addEventListener('click', ()=>$('#toast').classList.add('hidden'));
 
-// repaint solved nav on load from state
-(function keepNavSolved(){
-  try{
-    const st = loadState();
-    if(st && st.solved) st.solved.forEach((v,i)=>{ if(v){ 
-      const b=document.querySelector('.nav-btn[data-idx="'+i+'"]'); if(b) b.classList.add('solved'); 
-    }});
-  }catch(_ ){}
-})();
-
-// Stats toast UI
-(function setupStatsUI(){
-  const link = document.getElementById('statsLink');
-  const toast = document.getElementById('statsToast');
-  if(!link||!toast) return;
-  link.addEventListener('click', function(ev){
-    ev.preventDefault();
-    const s = loadStats();
-    const meta = (s && s.meta) ? s.meta : {streak:0,best:0};
-    const tkey = dayKey();
-    const today = s && s.days && s.days[tkey] ? s.days[tkey] : {solved:0,boards:[]};
-    toast.innerHTML = '<div class="toast-close" id="statsClose">×</div>' +
-      '<div style="font-weight:600;margin-bottom:6px;">Daily Stats</div>' +
-      '<div><b>Boards solved:</b> '+today.solved+'/8</div>' +
-      '<div><b>Streak:</b> '+meta.streak+' &nbsp; <b>Best:</b> '+meta.best+'</div>' +
-      '<div style="margin-top:6px;font-size:11px;opacity:.8">'+ "v2.1.7 · 1787" +'</div>';
-    toast.classList.remove('hidden');
-    document.getElementById('statsClose').onclick = ()=> toast.classList.add('hidden');
-  });
-})();
-
-// Ensure badge shows latest label
-(function(){ 
-  try{ var el=document.getElementById('versionBadge'); if(el) el.textContent='v2.1.7 · 1787'; }catch(_ ){}
+  // Init
+  (async function(){
+    build();
+    load();
+    await loadAnswers();
+    // If first board has no guesses yet, prep for typing UX
+    if((state.guesses[state.active]||[]).length===0) {}
+    paint();
+  })();
 })();

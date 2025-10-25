@@ -1,57 +1,48 @@
-
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
   <title>8× Fun With Words — Sequence</title>
-  <link rel="icon" type="image/png" href="favicon.png" />
-  <link rel="stylesheet" href="css/style.css?v=1787" />
+  <link rel="icon" href="favicon.png?v=1790"/>
+  <link rel="stylesheet" href="css/style.css?v=1790"/>
 </head>
 <body>
-  <header>
-    <div class="header-wrap">
-      <img class="logo" src="assets/img/logo.png?v=1767" alt="SunSar — 8× Fun With Words logo" />
-      <div class="text-block">
-        <p class="subtitle">Sequence Edition · Daily answers rotate at 8:00 AM ET</p>
-      </div>
-      <div class="theme-controls" role="group" aria-label="Theme">
-        <span class="label">Theme</span>
-        <div class="theme-group">
-          <label><input type="radio" name="theme" value="light"><span>Light</span></label>
-          <label><input type="radio" name="theme" value="dark"><span>Dark</span></label>
-        </div>
-      </div>
-    
-  </div>
+  <header class="topbar">
+    <div class="brand">
+      <img src="assets/logo.svg?v=1790" class="logo" alt="Logo"/>
+      <div class="subtitle">Sequence Edition · Daily answers rotate at 8:00 AM ET</div>
+    </div>
+    <div class="controls">
+      <span>Theme</span>
+      <button id="themeLight" class="chip">Light</button>
+      <button id="themeDark" class="chip">Dark</button>
+    </div>
+    <div class="badgebar">
+      <a id="statsLink" href="#" class="pill">Stats</a>
+      <div id="verBadge" class="pill"></div>
+    </div>
   </header>
 
-  <main>
-    <div id="boardsWrap">
-      <div id="boards" aria-label="Eight word boards shown in four columns"></div>
-    </div>
-    <div id="hud">
-      <span id="status">Viewing <span id="boardNum">1</span> · Active <span id="activeNum">1</span></span>
-      <button id="resetBtn" aria-label="Reset game">Reset</button>
-    </div>
-    <div id="keyboard" aria-label="On-screen keyboard"></div>
+  <main id="app">
+    <section id="boards" class="boards"></section>
   </main>
 
-  <footer>
-    <div class="disclaimer">
-      Disclaimer: This is a fun project to learn coding and has no commercial value.
-      All rights are with the amazing Britannica only.
-    </div>
-    <small>Minimal Wordle-like UI · 5 letters · 15 tries · © You</small>
+  <footer class="footer">
+    <div id="navRow" class="navRow"></div>
+    <div id="keyboard" class="keyboard"></div>
+    <p class="disclaimer">Disclaimer: This is a fun project to learn coding and has no commercial value. All rights are with the amazing Britannica only.</p>
   </footer>
 
-  <script src="assets/confetti.js?v=1787"></script>
-  <script src="js/game.js?v=1787"></script>
-\1v2.1.2 · 1778\3
+  <div id="toast" class="toast hidden">
+    <div class="toast-card">
+      <button id="toastClose" class="toast-x" aria-label="Close">×</button>
+      <div id="toastBody"></div>
+    </div>
+  </div>
 
-
-<div id="versionBadge" style="position:fixed;top:8px;right:8px;font-size:12px;color:#666;background:#f3f3f3;border:1px solid #e0e0e0;border-radius:10px;padding:4px 8px;z-index:9999;"></div>
-<a id="statsLink" href="#" style="position:fixed;top:10px;right:110px;font-size:12px;color:#007aff;text-decoration:none;background:rgba(255,255,255,0.85);border:1px solid #e6e6e6;border-radius:6px;padding:4px 6px;z-index:10000;">Stats</a>
-<div id="statsToast" class="toast hidden"></div>
+  <script>window.__APP_VERSION__ = "v2.1.9"; window.__APP_BUILD__ = 1790;</script>
+  <script defer src="js/confetti.js?v=1790"></script>
+  <script defer src="js/game.js?v=1790"></script>
 </body>
 </html>
