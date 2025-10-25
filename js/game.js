@@ -139,7 +139,29 @@ document.addEventListener("DOMContentLoaded", () => {
     function paintRowColored(bi,ri,res){ const b=boardEl(bi); const tiles=b.querySelectorAll(".tile"); const start=ri*WORD_LEN; const word=state[bi].rows[ri]; for(let i=0;i<WORD_LEN;i++){ const t=tiles[start+i]; t.classList.remove("ghost"); t.textContent=word[i] || ""; t.classList.add("flip"); setTimeout(()=>{ t.classList.remove("flip"); t.classList.add(res[i]); },80+i*30); } }
     function paintRowGhost(bi,ri){ const s=state[bi]; const str=s.rows[ri]||""; setRowGhost(bi,ri,str,true); }
     function paintExistingAsColored(bi){ const s=state[bi]; for(let r=0;r<s.attempt;r++){ const guess=s.rows[r]; const res=evalGuess(guess,ANSWERS[bi]); paintRowColored(bi,r,res); } renderRowActive(bi,s.attempt); }
-    function updateKeyboard(guess,res){ for(let i=0;i<WORD_LEN;i++){ const ch=guess[i]; const k=findKey(ch); if(!k) continue; if(res[i]==="correct"){k.classList.remove("present","absent");k.classList.add("correct");} else if(res[i]==="present"&&!k.classList.contains("correct")){k.classList.remove("absent");k.classList.add("present");} else if(!k.classList.contains("correct")&&!k.classList.contains("present")){k.classList.add("absent");} } }
+    
+  function autoSolveIfPreGuessed(bi){
+    const s = state[bi];
+    const answer = ANSWERS[bi];
+    for(let r=0; r<=s.attempt; r++){
+      const g = (s.rows[r]||"").toUpperCase();
+      if(g.length===WORD_LEN && g===answer){
+        const res = evalGuess(g, answer);
+        paintRowColored(bi, r, res);
+        s.solved = true;
+        s.attempt = Math.max(s.attempt, r+1);
+        confettiBurstForBoard(bi);
+        if(bi===BOARD_COUNT-1){
+          if(window.launchConfetti) window.launchConfetti();
+        } else {
+          unlockNext();
+        }
+        return true;
+      }
+    }
+    return false;
+  }
+function updateKeyboard(guess,res){ for(let i=0;i<WORD_LEN;i++){ const ch=guess[i]; const k=findKey(ch); if(!k) continue; if(res[i]==="correct"){k.classList.remove("present","absent");k.classList.add("correct");} else if(res[i]==="present"&&!k.classList.contains("correct")){k.classList.remove("absent");k.classList.add("present");} else if(!k.classList.contains("correct")&&!k.classList.contains("present")){k.classList.add("absent");} } }
     function findKey(ch){ return Array.from(keyboardEl.querySelectorAll(".key")).find(k=>k.textContent===ch)||null; }
 
     function confettiBurstForBoard(bi){
@@ -152,7 +174,8 @@ document.addEventListener("DOMContentLoaded", () => {
       }catch(e){}
     }
 
-    function unlockNext(){ if(activeBoard<BOARD_COUNT-1){ activeBoard=activeBoard+1; if(activeBoard>maxUnlocked) maxUnlocked=activeBoard; viewBoard=activeBoard; paintExistingAsColored(activeBoard); updateLockUI(); updateStatus(); updateNavButtons(); boardEl(viewBoard).scrollIntoView({behavior:"smooth",block:"nearest"}); } }
+    function unlockNext(){ if(activeBoard<BOARD_COUNT-1){ activeBoard=activeBoard+1; if(activeBoard>maxUnlocked) maxUnlocked=activeBoard; viewBoard=activeBoard; paintExistingAsColored(activeBoard);
+    if(autoSolveIfPreGuessed(activeBoard)) return; updateLockUI(); updateStatus(); updateNavButtons(); boardEl(viewBoard).scrollIntoView({behavior:"smooth",block:"nearest"}); } }
     function updateLockUI(){ for(let i=0;i<BOARD_COUNT;i++){ const b=boardEl(i); if(i<=maxUnlocked) b.classList.remove("locked"); else b.classList.add("locked"); } }
     function updateStatus(){ boardNumEl.textContent=(viewBoard+1); activeNumEl.textContent=(activeBoard+1); }
 
