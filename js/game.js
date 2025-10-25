@@ -1,9 +1,9 @@
-window.APP_BUILD = window.APP_BUILD || "1786";
+window.APP_BUILD = window.APP_BUILD || "1787";
 document.addEventListener("DOMContentLoaded", () => {
 const WORD_LEN = 5;
   const MAX_ROWS = 15;
   const BOARD_COUNT = 8;
-  const VALID_TXT_URL = "assets/valid_words.txt?v=1786?v=" + window.APP_BUILD;
+  const VALID_TXT_URL = "assets/valid_words.txt?v=1787?v=" + window.APP_BUILD;
 
   (function initTheme(){
     try{
@@ -27,7 +27,7 @@ const WORD_LEN = 5;
   async function loadValidList() {
     try {
       const r = await fetch(VALID_TXT_URL, { cache: "no-store" });
-      if (!r.ok) throw new Error("no valid_words.txt?v=1786");
+      if (!r.ok) throw new Error("no valid_words.txt?v=1787");
       const raw = await r.text();
       const list = raw.split(/\r?\n|[\s,]+/).map(w=>w.trim().toUpperCase()).filter(w=>/^[A-Z]{5}$/.test(w));
       return Array.from(new Set(list));
@@ -253,4 +253,139 @@ function updateKeyboard(guess,res){ for(let i=0;i<WORD_LEN;i++){ const ch=guess[
   var label = "v2.1.6 · 1786";
   function setBadge(){ var el = document.getElementById('versionBadge'); if(el) el.textContent = label; }
   if(document.readyState === 'loading'){ document.addEventListener('DOMContentLoaded', setBadge, {once:true}); } else { setBadge(); }
+})();
+
+
+// === Progress & Stats (localStorage) + Nav sticky solved state ===
+const LS_STATE_KEY = 'fww_state_v2';
+const LS_STATS_KEY = 'fww_stats_v2';
+
+function etNow(){ return new Date(new Date().toLocaleString('en-US',{timeZone:'America/New_York'})); }
+function dayKey(){
+  const d=etNow();
+  if(d.getHours()<8) d.setDate(d.getDate()-1);
+  return d.toISOString().slice(0,10);
+}
+
+function loadState(){
+  try{ const raw = localStorage.getItem(LS_STATE_KEY);
+    if(!raw) return null;
+    const obj = JSON.parse(raw);
+    if(obj.dayKey !== dayKey()) return null;
+    return obj;
+  }catch(e){ return null; }
+}
+function saveState(obj){
+  try{ localStorage.setItem(LS_STATE_KEY, JSON.stringify(obj)); }catch(e){}
+}
+
+function loadStats(){
+  try{ return JSON.parse(localStorage.getItem(LS_STATS_KEY)||'{}'); }catch(_){
+    return {};
+  }
+}
+function saveStats(s){ try{ localStorage.setItem(LS_STATS_KEY, JSON.stringify(s)); }catch(_ ){} }
+
+function incStreak(stats, completedToday){
+  const today = dayKey();
+  if(!stats.meta) stats.meta = {streak:0,best:0,lastComplete:''};
+  if(completedToday){
+    const prev = new Date(today); prev.setDate(prev.getDate()-1);
+    const prevKey = prev.toISOString().slice(0,10);
+    if(stats.meta.lastComplete === prevKey) stats.meta.streak += 1;
+    else stats.meta.streak = 1;
+    if(stats.meta.streak>stats.meta.best) stats.meta.best = stats.meta.streak;
+    stats.meta.lastComplete = today;
+  }
+}
+
+// Hook points (these functions must exist in the main game code):
+// - getGuessesByBoard(): returns array of arrays of guess strings per board
+// - getSolvedFlags(): returns boolean array [8] whether board solved
+// - getActiveBoard(): number 0..7
+// - setFromSavedState(state): rehydrates UI from state (we implement a thin adapter below)
+// - onBoardSolved(boardIndex): is called by game when a board is solved (we wrap to update stats & nav)
+
+(function attachPersistence(){ 
+  const st = loadState();
+  if(st && window.setFromSavedState) window.setFromSavedState(st);
+
+  // persist on each guess submit if hook exposed
+  if(!window._persistHookInstalled && window.onGuessCommitted){ 
+    const orig = window.onGuessCommitted;
+    window.onGuessCommitted = function(){ 
+      try{ 
+        const state = {
+          dayKey: dayKey(),
+          guesses: window.getGuessesByBoard ? window.getGuessesByBoard() : [],
+          solved: window.getSolvedFlags ? window.getSolvedFlags() : [],
+          active: window.getActiveBoard ? window.getActiveBoard() : 0
+        };
+        saveState(state);
+      }catch(_){}
+      return orig.apply(this, arguments);
+    };
+    window._persistHookInstalled = true;
+  }
+
+  // wrap board-solved for stats and sticky nav
+  if(!window._solvedWrapInstalled && window.onBoardSolved){ 
+    const origSolved = window.onBoardSolved;
+    window.onBoardSolved = function(idx){
+      const res = origSolved.apply(this, arguments);
+      try{ 
+        // mark nav button solved (sticky)
+        const btn = document.querySelector('.nav-btn[data-idx="'+idx+'"]');
+        if(btn) btn.classList.add('solved');
+
+        // stats
+        const stats = loadStats();
+        const tkey = dayKey();
+        if(!stats.days) stats.days = {};
+        if(!stats.days[tkey]) stats.days[tkey] = { solved:0, boards: Array(8).fill(0) };
+        if(!stats.days[tkey].boards[idx]){ stats.days[tkey].boards[idx]=1; stats.days[tkey].solved+=1; }
+        const completed = stats.days[tkey].solved>=8;
+        incStreak(stats, completed);
+        saveStats(stats);
+      }catch(_){}
+      return res;
+    };
+    window._solvedWrapInstalled = true;
+  }
+})();
+
+// repaint solved nav on load from state
+(function keepNavSolved(){
+  try{
+    const st = loadState();
+    if(st && st.solved) st.solved.forEach((v,i)=>{ if(v){ 
+      const b=document.querySelector('.nav-btn[data-idx="'+i+'"]'); if(b) b.classList.add('solved'); 
+    }});
+  }catch(_ ){}
+})();
+
+// Stats toast UI
+(function setupStatsUI(){
+  const link = document.getElementById('statsLink');
+  const toast = document.getElementById('statsToast');
+  if(!link||!toast) return;
+  link.addEventListener('click', function(ev){
+    ev.preventDefault();
+    const s = loadStats();
+    const meta = (s && s.meta) ? s.meta : {streak:0,best:0};
+    const tkey = dayKey();
+    const today = s && s.days && s.days[tkey] ? s.days[tkey] : {solved:0,boards:[]};
+    toast.innerHTML = '<div class="toast-close" id="statsClose">×</div>' +
+      '<div style="font-weight:600;margin-bottom:6px;">Daily Stats</div>' +
+      '<div><b>Boards solved:</b> '+today.solved+'/8</div>' +
+      '<div><b>Streak:</b> '+meta.streak+' &nbsp; <b>Best:</b> '+meta.best+'</div>' +
+      '<div style="margin-top:6px;font-size:11px;opacity:.8">'+ "v2.1.7 · 1787" +'</div>';
+    toast.classList.remove('hidden');
+    document.getElementById('statsClose').onclick = ()=> toast.classList.add('hidden');
+  });
+})();
+
+// Ensure badge shows latest label
+(function(){ 
+  try{ var el=document.getElementById('versionBadge'); if(el) el.textContent='v2.1.7 · 1787'; }catch(_ ){}
 })();

@@ -49,3 +49,10 @@ footer{margin:6px 0 12px 0;color:#666;text-align:center}
 @media (max-width:520px){#boards{grid-template-columns:1fr}.tile{width:34px;height:34px}}
 
 .krow-nav .key.solved{ background: var(--green); color:#fff; border-color: var(--green); }
+
+
+/* toast for stats */
+.toast{position:fixed;right:10px;top:40px;max-width:320px;background:rgba(0,0,0,0.85);color:#fff;padding:12px 14px;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.2);z-index:10001;backdrop-filter:saturate(180%) blur(6px)}
+.toast.hidden{display:none}
+.toast .toast-close{position:absolute;right:8px;top:6px;cursor:pointer;font-weight:bold;color:#fff;opacity:.85}
+.nav-btn.solved{background:#2ecc71!important;color:#fff!important;border-color:#23b862!important}
