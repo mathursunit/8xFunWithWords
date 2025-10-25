@@ -1,3 +1,4 @@
+const VERSION = "1780";
 
 document.addEventListener("DOMContentLoaded", () => {
   const VERSION = "1767";
@@ -182,3 +183,51 @@ function updateKeyboard(guess,res){ for(let i=0;i<WORD_LEN;i++){ const ch=guess[
     function resetGame(){ for(let i=0;i<state.length;i++) state[i]={rows:Array(MAX_ROWS).fill(""),attempt:0,solved:false,invalidRow:-1}; activeBoard=0; viewBoard=0; maxUnlocked=0; for(let i=0;i<BOARD_COUNT;i++){ const b=boardEl(i); b.querySelectorAll(".tile").forEach(t=>{t.className="tile"; t.textContent="";}); } buildKeyboard(); updateLockUI(); updateStatus(); updateNavButtons(); drawPreviewAll(); }
   })().catch(err=>{ console.error(err); const s=document.getElementById("status"); if(s) s.textContent="Error loading game: "+err; });
 });
+
+/* === 2.1.1 add-on (non-destructive) === */
+(function(){
+  try{
+    // Number-key shortcuts 1..8 to VIEW boards only
+    window.addEventListener('keydown', function(e){
+      if (/^[1-8]$/.test(e.key) && typeof window.onNavClick === 'function') {
+        try { window.onNavClick(parseInt(e.key,10)-1); } catch(_) {}
+      }
+    });
+
+    function updateNavSolved(){
+      try{
+        var nav = document.querySelectorAll('.krow-nav .key');
+        if(!nav || !nav.length) return;
+        var st = (typeof window.state !== 'undefined') ? window.state : null;
+        for(var i=0;i<nav.length;i++){
+          var solved = false;
+          if (st && st[i] && st[i].solved === true) solved = true;
+          nav[i].classList.toggle('solved', solved);
+        }
+      }catch(e){}
+    }
+    // Run regularly so we don't need to hook internals
+    setInterval(updateNavSolved, 750);
+    // Also on first paint
+    if (document.readyState === 'complete') updateNavSolved();
+    else window.addEventListener('load', updateNavSolved);
+  }catch(e){}
+})();
+
+
+// v2.1.3: single source-of-truth version badge
+(function(){
+  var VERSION_LABEL = "v2.1.3 · 1780";
+  function setBadge(){
+    try {
+      var el = document.getElementById('versionBadge');
+      if (el) el.textContent = VERSION_LABEL;
+    } catch(_){
+    }
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setBadge, { once: true });
+  } else {
+    setBadge();
+  }
+})();
