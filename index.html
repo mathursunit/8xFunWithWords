@@ -1,65 +1,39 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>8× Fun With Words — Sequence</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=2111">
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>8× Fun With Words</title>
+<link rel="stylesheet" href="css/style.css?v=2112"/>
 </head>
 <body>
-  <header class="topbar">
-    <div class="brand">
-      <img src="assets/sunsar-logo.png" alt="SunSar — 8× Fun With Words" class="logo">
-      <div class="subtitle">Sequence Edition · Daily answers rotate at 8:00 AM ET</div>
-    </div>
-    <div class="actions">
-      <nav class="links">
-        <button id="statsBtn" class="link">Stats</button>
-        <button id="aboutBtn" class="link">About</button>
-      </nav>
-      <div class="theme">
-        <span>Theme</span>
-        <button class="chip" data-theme="light" id="lightBtn">Light</button>
-        <button class="chip" data-theme="dark" id="darkBtn">Dark</button>
-      </div>
-      <div id="verBadge" class="ver">v2.1.11 · 1779</div>
-    </div>
-  </header>
-
-  <main id="app">
-    <section id="boards" class="boards"></section>
-
-    <div id="navButtons" class="nav-buttons" aria-label="Board navigation">
-      <button class="nav-btn" data-board="1">1</button>
-      <button class="nav-btn" data-board="2">2</button>
-      <button class="nav-btn" data-board="3">3</button>
-      <button class="nav-btn" data-board="4">4</button>
-      <button class="nav-btn" data-board="5">5</button>
-      <button class="nav-btn" data-board="6">6</button>
-      <button class="nav-btn" data-board="7">7</button>
-      <button class="nav-btn" data-board="8">8</button>
-    </div>
-
-    <section id="keyboard" class="keyboard">
-      <div class="row row1"></div>
-      <div class="row row2"></div>
-      <div class="row row3"></div>
-    </section>
-  </main>
-
-  <!-- Toast / modal -->
-  <div id="toast" class="toast hide">
-    <div class="card">
-      <button class="close" id="toastClose" aria-label="Close">×</button>
-      <div id="toastBody"></div>
-    </div>
+<header>
+  <div class="logo">
+    <img src="assets/logo.png" alt="SunSar — 8x Fun With Words"/>
+    <span style="font-weight:500;">Sequence Edition · Daily answers rotate at 8:00 AM ET</span>
   </div>
-
-  <canvas id="confetti" class="confetti"></canvas>
-
-  <script src="js/game.js?v=2111"></script>
+  <a class="toplink" href="#" id="statsLink">Stats</a>
+  <a class="toplink" href="#" id="aboutLink">About</a>
+  <div class="badge" id="verBadge">v2.1.12 · 1782</div>
+</header>
+<div class="container">
+  <div class="boards" id="boards"></div>
+  <div class="navrow" id="navRow"></div>
+</div>
+<div class="kbwrap">
+  <div class="kb">
+    <div class="kb-row" id="navNumbers"></div>
+    <div class="kb-row" id="kbRow1"></div>
+    <div class="kb-row" id="kbRow2"></div>
+    <div class="kb-row" id="kbRow3"></div>
+  </div>
+</div>
+<div id="scrim" class="scrim hidden" aria-hidden="true"></div>
+<div id="toast" class="toast hidden" role="dialog" aria-modal="true" aria-labelledby="toastTitle">
+  <button id="toastClose" class="toast-close" aria-label="Close">×</button>
+  <h3 id="toastTitle" class="toast-title">Info</h3>
+  <div id="toastBody"></div>
+</div>
+<script type="module" src="js/game.js?v=2112"></script>
 </body>
 </html>
