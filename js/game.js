@@ -1,6 +1,6 @@
 
 document.addEventListener("DOMContentLoaded", () => {
-  const VERSION = "1761";
+  const VERSION = "1762";
   const WORD_LEN = 5;
   const MAX_ROWS = 15;
   const BOARD_COUNT = 8;
@@ -148,11 +148,23 @@ document.addEventListener("DOMContentLoaded", () => {
       const guess=(s.rows[s.attempt]||"").toUpperCase(); 
       if(guess.length!==WORD_LEN) return; 
       if(!validSet.has(guess)){markInvalidRow(activeBoard,s.attempt); s.invalidRow=s.attempt; return;} 
+
+      // 1) Persist this guess (ghost) on EVERY board at its current row, then advance their row counters.
+      for(let bi=0; bi<BOARD_COUNT; bi++){ 
+        const sb=state[bi]; 
+        if(sb.attempt>=MAX_ROWS) continue; 
+        if(!sb.rows[sb.attempt]) sb.rows[sb.attempt]=guess; 
+        paintRowGhost(bi,sb.attempt); 
+        if(bi!==activeBoard) sb.attempt++; // keep rows aligned across boards
+      }
+
+      // 2) Score/color only the ACTIVE board.
       const answer=ANSWERS[activeBoard]; 
       const res=evalGuess(guess,answer); 
       paintRowColored(activeBoard,s.attempt,res); 
       updateKeyboard(guess,res); 
       submittedGuesses.push(guess); 
+
       if(guess===answer){ 
         s.solved=true; 
         if(activeBoard===BOARD_COUNT-1){ if(window.launchConfetti) window.launchConfetti(); } 
@@ -164,7 +176,7 @@ document.addEventListener("DOMContentLoaded", () => {
       drawPreviewAll(); 
     }
 
-    // Preview: show gray letters on all boards (including future boards)
+    // Preview while typing: mirror partial word to other boards' current rows in ghost
     function drawPreviewAll(){ 
       const sCur=cur(); 
       const curStr=(sCur.rows[sCur.attempt]||""); 
@@ -172,9 +184,10 @@ document.addEventListener("DOMContentLoaded", () => {
         const s=state[bi]; 
         const ri=s.attempt; 
         if(ri>=MAX_ROWS) continue; 
-        // If the board has text in its current row (because we propagated guesses), keep that; otherwise mirror current input
-        const str = s.rows[ri] || curStr;
-        setRowGhost(bi,ri,str, bi!==activeBoard); 
+        if(bi===activeBoard) { renderRowActive(bi,ri); continue; }
+        const existing=s.rows[ri]||""; 
+        const str = existing.length===WORD_LEN ? existing : (existing || curStr); 
+        setRowGhost(bi,ri,str,true); 
       } 
     }
 
@@ -190,15 +203,17 @@ document.addEventListener("DOMContentLoaded", () => {
         t.textContent=str[i] || ""; 
       } 
     }
-    function renderRowActive(bi,ri){ // active board typing row (no ghost)
-      const s=state[bi]; const str=s.rows[ri]||""; setRowGhost(bi,ri,str,false);
+    function renderRowActive(bi,ri){ 
+      const s=state[bi]; 
+      const str=s.rows[ri]||""; 
+      setRowGhost(bi,ri,str,false);
     }
     function markInvalidRow(bi,ri){ const b=boardEl(bi); const tiles=b.querySelectorAll(".tile"); const start=ri*WORD_LEN; for(let i=0;i<WORD_LEN;i++) tiles[start+i].classList.add("invalid"); }
     function clearInvalidRow(bi,ri){ const b=boardEl(bi); const tiles=b.querySelectorAll(".tile"); const start=ri*WORD_LEN; for(let i=0;i<WORD_LEN;i++) tiles[start+i].classList.remove("invalid"); }
     function evalGuess(guess,answer){ const res=Array(WORD_LEN).fill("absent"); const cnt={}; for(const ch of answer) cnt[ch]=(cnt[ch]||0)+1; for(let i=0;i<WORD_LEN;i++) if(guess[i]===answer[i]){ res[i]="correct"; cnt[guess[i]]--; } for(let i=0;i<WORD_LEN;i++) if(res[i]!=="correct"){ const ch=guess[i]; if((cnt[ch]||0)>0){ res[i]="present"; cnt[ch]--; } } return res; }
     function paintRowColored(bi,ri,res){ const b=boardEl(bi); const tiles=b.querySelectorAll(".tile"); const start=ri*WORD_LEN; const word=state[bi].rows[ri]; for(let i=0;i<WORD_LEN;i++){ const t=tiles[start+i]; t.classList.remove("ghost"); t.textContent=word[i] || ""; t.classList.add("flip"); setTimeout(()=>{ t.classList.remove("flip"); t.classList.add(res[i]); },80+i*30); } }
     function paintRowGhost(bi,ri){ const s=state[bi]; const str=s.rows[ri]||""; setRowGhost(bi,ri,str,true); }
-    function paintExistingAsColored(bi){ // recolor previously placed guesses once board becomes active
+    function paintExistingAsColored(bi){ 
       const s=state[bi]; 
       for(let r=0;r<s.attempt;r++){ 
         const guess=s.rows[r]; 
@@ -212,18 +227,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function unlockNext(){ 
       if(activeBoard<BOARD_COUNT-1){ 
-        // future board receives the history BUT stays gray
-        const next=activeBoard+1; 
-        const sNext=state[next]; 
-        for(let g=0; g<Math.min(submittedGuesses.length,MAX_ROWS); g++){ 
-          const guess=submittedGuesses[g]; 
-          sNext.rows[g]=guess; 
-          sNext.attempt=g+1; 
-          paintRowGhost(next,g); 
-        } 
-        activeBoard = next; 
+        activeBoard = activeBoard+1; 
         if(activeBoard>maxUnlocked) maxUnlocked=activeBoard; 
         viewBoard = activeBoard; 
+        // recolor any ghost history on new active board
         paintExistingAsColored(activeBoard); 
         updateLockUI(); updateStatus(); updateNavButtons(); 
         boardEl(viewBoard).scrollIntoView({behavior:"smooth",block:"nearest"}); 
