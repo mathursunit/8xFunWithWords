@@ -1,48 +1,48 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>8× Fun With Words — Sequence</title>
-  <link rel="icon" href="favicon.png?v=1790"/>
-  <link rel="stylesheet" href="css/style.css?v=1790"/>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>8× Fun With Words — Sequence Edition</title>
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="stylesheet" href="css/style.css?v=2.1.10">
 </head>
 <body>
-  <header class="topbar">
-    <div class="brand">
-      <img src="assets/logo.png?v=1790" class="logo" alt="Logo"/>
-      <div class="subtitle">Sequence Edition · Daily answers rotate at 8:00 AM ET</div>
-    </div>
-    <div class="controls">
-      <span>Theme</span>
-      <button id="themeLight" class="chip">Light</button>
-      <button id="themeDark" class="chip">Dark</button>
-    </div>
-    <div class="badgebar">
-      <a id="statsLink" href="#" class="pill">Stats</a>
-      <div id="verBadge" class="pill"></div>
-    </div>
-  </header>
-
-  <main id="app">
-    <section id="boards" class="boards"></section>
-  </main>
-
-  <footer class="footer">
-    <div id="navRow" class="navRow"></div>
-    <div id="keyboard" class="keyboard"></div>
-    <p class="disclaimer">Disclaimer: This is a fun project to learn coding and has no commercial value. All rights are with the amazing Britannica only.</p>
-  </footer>
-
-  <div id="toast" class="toast hidden">
-    <div class="toast-card">
-      <button id="toastClose" class="toast-x" aria-label="Close">×</button>
-      <div id="toastBody"></div>
-    </div>
+<header class="site">
+  <div class="title-line">
+    <img class="logo" src="assets/logo.svg" alt="SunSar — 8x Fun With Words">
+    <div>Sequence Edition · Daily answers rotate at 8:00 AM ET</div>
   </div>
+  <div class="right">
+    <span id="statsLink" class="link">Stats</span>
+    <span id="aboutLink" class="link">About</span>
+    <span id="themeLabel">Theme</span>
+    <span class="chip" id="lightBtn">Light</span>
+    <span class="chip" id="darkBtn">Dark</span>
+    <span id="verBadge" class="badge">v2.1.10 · 1779</span>
+  </div>
+</header>
 
-  <script>window.__APP_VERSION__ = "v2.1.9"; window.__APP_BUILD__ = 1790;</script>
-  <script defer src="js/confetti.js?v=1790"></script>
-  <script defer src="js/game.js?v=1790"></script>
+<main id="app" class="grid" aria-live="polite"></main>
+
+<!-- Navigator and Keyboard -->
+<div class="navbar" id="navRow"></div>
+<div class="kb" id="kb"></div>
+
+<!-- Toasts -->
+<div id="statsToast" class="toast" role="dialog" aria-modal="true" aria-label="Statistics">
+  <div class="x" onclick="this.parentElement.classList.remove('show')">✕</div>
+  <h4>Daily Stats</h4>
+  <div id="statsBody">Loading…</div>
+</div>
+<div id="aboutToast" class="toast" role="dialog" aria-modal="true" aria-label="About">
+  <div class="x" onclick="this.parentElement.classList.remove('show')">✕</div>
+  <h4>About</h4>
+  <p>Disclaimer: This is a fun project to learn coding and has no commercial value. All rights are with the amazing Britannica only.</p>
+</div>
+
+<div class="footer" id="footerNote">Minimal Wordle-like UI · 5 letters · 15 tries · © You</div>
+
+<script src="js/game.js?v=1779" defer></script>
 </body>
 </html>

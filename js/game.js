@@ -1,210 +1,387 @@
 
 (() => {
-  const VERSION = window.__APP_VERSION__ || 'v?';
-  const BUILD = window.__APP_BUILD__ || 0;
+  'use strict';
 
-  // DOM helpers
-  const $ = (s, el=document) => el.querySelector(s);
-  const $$ = (s, el=document) => [...el.querySelectorAll(s)];
+  const VERSION = 'v2.1.10 · 1779';
 
-  // Badge
-  (function setBadge(){
-    const b = $('#verBadge');
-    if (b) b.textContent = `${VERSION} · ${BUILD}`;
-  })();
-
-  // Theme
-  const themeKey = 'xfww.theme';
-  const setTheme = t => { document.documentElement.classList.toggle('dark', t==='dark'); localStorage.setItem(themeKey,t); };
-  $('#themeLight').onclick=()=>setTheme('light');
-  $('#themeDark').onclick=()=>setTheme('dark');
-  setTheme(localStorage.getItem(themeKey)||'light');
-
-  // Params
-  const BOARDS=8, TRIES=15, WORDLEN=5;
-
-  // Day key (8 AM ET)
-  function etKey(){
-    const now = new Date();
-    const et = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
-    if (et.getHours() < 8) et.setDate(et.getDate()-1);
-    return et.toISOString().slice(0,10);
-  }
-
-  // Persistence keys
-  const NS='xfww.v2.1.9';
-  const DAY = etKey();
-
-  // State
-  let answers = Array(BOARDS).fill('APPLE');
-  const state = {
-    day: DAY,
-    active: 0,
-    guesses: Array.from({length:BOARDS}, ()=>[]), // per-board arrays of words
-    solved: Array(BOARDS).fill(false),
-    keyboard: {}
+  // Utilities --------------------------------------------------
+  const $ = (sel, el=document) => el.querySelector(sel);
+  const $$ = (sel, el=document) => [...el.querySelectorAll(sel)];
+  const clamp = (n, a, b) => Math.max(a, Math.min(n, b));
+  const todayETKey = () => {
+    // 8AM ET rollover. ET = UTC-5 (standard) / UTC-4 (DST). We approximate by using IANA 'America/New_York' if supported.
+    try {
+      const fmt = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York',
+        year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', hour12:false });
+      const parts = Object.fromEntries(fmt.formatToParts(new Date()).map(p=>[p.type,p.value]));
+      const h = parseInt(parts.hour,10);
+      // date string YYYY-MM-DD for ET "game day" that flips at 08
+      const d = `${parts.year}-${parts.month}-${parts.day}`;
+      // shift if before 8 -> use previous day key
+      const dt = new Date(`${d}T${h.toString().padStart(2,'0')}:00:00-05:00`); // offset hint; NY tz wins
+      // compute key with rollover at 8
+      let gameDate = new Date(dt);
+      if (h < 8) gameDate.setDate(gameDate.getDate()-1);
+      const y = gameDate.getFullYear();
+      const m = (gameDate.getMonth()+1).toString().padStart(2,'0');
+      const da = gameDate.getDate().toString().padStart(2,'0');
+      return `${y}-${m}-${da}`;
+    } catch(e){
+      // fallback UTC (8am ET ~ 13:00/12:00 UTC). Use 13:00 UTC as cutoff.
+      const now = new Date();
+      const cutoff = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 13,0,0));
+      const day = now.getTime() < cutoff.getTime() ? new Date(now.getTime()-86400000) : now;
+      return `${day.getUTCFullYear()}-${(day.getUTCMonth()+1+'').padStart(2,'0')}-${(day.getUTCDate()+'').padStart(2,'0')}`;
+    }
   };
 
-  // Save/Load
-  function save(){
-    const root = JSON.parse(localStorage.getItem(NS)||'{}');
-    root[DAY] = { active: state.active, guesses: state.guesses, solved: state.solved, keyboard: state.keyboard };
-    localStorage.setItem(NS, JSON.stringify(root));
-  }
-  function load(){
-    const root = JSON.parse(localStorage.getItem(NS)||'{}');
-    const d = root[DAY];
-    if (d){
-      state.active = d.active||0;
-      state.guesses = d.guesses||state.guesses;
-      state.solved  = d.solved||state.solved;
-      state.keyboard= d.keyboard||state.keyboard;
-    }
-  }
+  // DOM Mounts --------------------------------------------------
+  const root = $('#app');
+  const kb = $('#kb');
+  const nav = $('#navRow');
+  $('#verBadge').textContent = VERSION;
 
-  // Build UI
-  function build(){
-    const boards = $('#boards'); boards.innerHTML='';
-    for(let b=0;b<BOARDS;b++){
-      const sec = document.createElement('section'); sec.className='board'; sec.dataset.idx=b;
-      sec.innerHTML = `<h3>Board ${b+1}</h3>`;
-      const grid = document.createElement('div'); grid.className='grid';
-      for(let r=0;r<TRIES;r++){
-        for(let c=0;c<WORDLEN;c++){
-          const t = document.createElement('div'); t.className='tile'; grid.appendChild(t);
-        }
+  // Theme toggle
+  $('#lightBtn').onclick = () => { document.body.classList.remove('dark'); localStorage.setItem('theme','light'); };
+  $('#darkBtn').onclick = () => { document.body.classList.add('dark'); localStorage.setItem('theme','dark'); };
+  if(localStorage.getItem('theme')==='dark') document.body.classList.add('dark');
+
+  // Toasts
+  const openToast = id => { const el = $(id); if(el){ el.classList.add('show'); } };
+  $('#statsLink').onclick = () => showStats();
+  $('#aboutLink').onclick = () => openToast('#aboutToast');
+
+  // Game State --------------------------------------------------
+  const GAME_VERSION_KEY = '8xfww.v2.1.10';
+  const gameDayKey = todayETKey();
+  const STORE_KEY = `${GAME_VERSION_KEY}.${gameDayKey}`;
+
+  const state = {
+    answers: [],
+    boardCount: 8,
+    triesPerBoard: 15,
+    board: 0, // active logical board index (sequence)
+    rows: Array.from({length:8}, _=>[]), // arrays of string guesses
+    evaluations: Array.from({length:8}, _=>[]), // 'green'|'yellow'|'gray' per letter
+    solved: Array(8).fill(false),
+  };
+
+  // Local storage restore
+  try{
+    const saved = JSON.parse(localStorage.getItem(STORE_KEY) || 'null');
+    if(saved && saved.boardCount===state.boardCount){
+      Object.assign(state, saved);
+    }
+  }catch{}
+
+  // Build boards grid
+  function buildBoards(){
+    root.innerHTML = '';
+    for(let i=0;i<state.boardCount;i++){
+      const card = document.createElement('section');
+      card.className = 'board';
+      card.dataset.index = i;
+      card.innerHTML = `<h3>Board ${i+1}</h3>
+        <div class="tiles" aria-label="Board ${i+1} grid"></div>`;
+      root.appendChild(card);
+
+      const tiles = $('.tiles', card);
+      const total = state.triesPerBoard*5;
+      for(let t=0;t<total;t++){
+        const div = document.createElement('div');
+        div.className = 'tile';
+        tiles.appendChild(div);
       }
-      sec.appendChild(grid); boards.appendChild(sec);
     }
-    // nav
-    const nav = $('#navRow'); nav.innerHTML='';
-    for(let i=0;i<BOARDS;i++){
-      const btn = document.createElement('button'); btn.className='navBtn'; btn.textContent=String(i+1); btn.dataset.idx=i;
-      btn.onclick = ()=>{ view=i; paint(); };
-      nav.appendChild(btn);
+  }
+
+  // Navigator row and keyboard
+  function buildNav(){
+    nav.innerHTML = '';
+    for(let i=0;i<state.boardCount;i++){
+      const p = document.createElement('div');
+      p.className = 'pill';
+      p.textContent = (i+1);
+      p.dataset.index = i;
+      p.onclick = () => { scrollToBoard(i); }
+      nav.appendChild(p);
     }
-    // keyboard
-    const k = $('#keyboard'); k.innerHTML='';
-    const add = (arr)=>arr.forEach(l=>{
-      const b=document.createElement('button'); b.className='key'; b.textContent=l; b.dataset.key=l;
-      if(l==='ENTER'||l==='⌫') b.classList.add('wide'); if(l==='⌫') b.dataset.key='BACK';
-      b.onclick=()=>press(l);
-      k.appendChild(b);
+    refreshNav();
+  }
+  function refreshNav(){
+    const pills = $$('#navRow .pill');
+    pills.forEach((p,idx)=>{
+      p.classList.toggle('active', idx===state.board);
+      p.classList.toggle('solved', !!state.solved[idx]);
     });
-    add(['Q','W','E','R','T','Y','U','I','O','P']);
-    add(['A','S','D','F','G','H','J','K','L']);
-    add(['ENTER','Z','X','C','V','B','N','M','⌫']);
   }
-
-  // Word list -> answers
-  async function loadAnswers(){
-    const res = await fetch(`assets/valid_words.txt?v=${BUILD}`);
-    const txt = await res.text();
-    const list = txt.split(/\r?\n/).map(s=>s.trim()).filter(Boolean).map(s=>s.toUpperCase());
-    const dayIndex = Math.floor(new Date(DAY).getTime()/86400000);
-    const start = (dayIndex * 8) % Math.max(1, list.length-8);
-    answers = list.slice(start, start+8).map(w=>w.toUpperCase());
+  function scrollToBoard(i){
+    const el = $(`.board[data-index="${i}"]`);
+    if(el) el.scrollIntoView({behavior:'smooth', block:'center'});
   }
-
-  // Input buffer spans across all boards (visual)
-  let buffer = '';
-  function press(k){
-    if(k==='ENTER'){ submit(); return; }
-    if(k==='⌫' || k==='BACK'){ buffer = buffer.slice(0,-1); paint(); return; }
-    if(k.length===1 && /^[A-Z]$/.test(k)){ buffer = (buffer + k).slice(0,WORDLEN); paint(); }
-  }
-  window.addEventListener('keydown',e=>{
-    if(e.key==='Enter') return press('ENTER');
-    if(e.key==='Backspace') return press('⌫');
-    if(/^[a-z]$/i.test(e.key)) return press(e.key.toUpperCase());
-  });
-
-  function colorFor(answer, word, i){
-    const ch = word[i];
-    if(answer[i]===ch) return 'G';
-    if(answer.includes(ch)) return 'Y';
-    return 'B';
-  }
-
-  // Paint everything
-  let view = 0;
-  function paint(){
-    // nav
-    $$('.navBtn').forEach((b,i)=>{
-      b.classList.toggle('active', i===view);
-      b.classList.toggle('solved', state.solved[i]);
+  function buildKeyboard(){
+    const rows = [
+      "Q W E R T Y U I O P".split(' '),
+      "A S D F G H J K L".split(' '),
+      ["ENTER","Z","X","C","V","B","N","M","⌫"]
+    ];
+    kb.innerHTML='';
+    const navRow = document.createElement('div');
+    navRow.className='row';
+    // navigator in keyboard area? kept separate — already above.
+    rows.forEach((arr,ri)=>{
+      const r = document.createElement('div'); r.className='row';
+      arr.forEach(k=>{
+        const b = document.createElement('div'); b.className='key'; b.textContent=k;
+        if(k==='ENTER'||k==='⌫') b.classList.add('wide','icon');
+        b.onclick = () => simulateKey(k);
+        r.appendChild(b);
+      });
+      kb.appendChild(r);
     });
+  }
+  function simulateKey(label){
+    let key = label;
+    if(label==='⌫') key = 'Backspace';
+    if(label==='ENTER') key = 'Enter';
+    window.dispatchEvent(new KeyboardEvent('keydown', { key }));
+  }
 
-    // tiles
-    for(let b=0;b<BOARDS;b++){
-      const grid = $(`.board[data-idx="${b}"] .grid`);
-      [...grid.children].forEach(t=>{ t.className='tile'; t.textContent=''; });
-      // fill rows with existing guesses across this board's grid
-      const rows = state.guesses[b].length;
-      for(let r=0;r<rows;r++){
-        const w = state.guesses[b][r];
-        for(let i=0;i<WORDLEN;i++){
-          const t = grid.children[r*WORDLEN+i];
-          t.textContent = w[i]||'';
-          if(b===state.active || state.solved[b]){
-            t.classList.add(colorFor(answers[b], w, i));
-          }else{
-            t.classList.add('faded');
+  // Load words & decide answers
+  async function loadWords(){
+    const res = await fetch('assets/valid_words.txt?v=1779');
+    const text = await res.text();
+    const raw = text.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+    // words to lower-case; dedupe
+    const all = Array.from(new Set(raw.map(w=>w.toLowerCase()))).filter(w=>w.length===5);
+    // Deterministic rotation by day index using a fixed base
+    const base = new Date('2025-01-01T13:00:00Z'); // ~8AM ET
+    const now = new Date();
+    const dayIndex = Math.floor((now - base)/86400000);
+    const start = (dayIndex*8) % all.length;
+    const answers = [];
+    for(let i=0;i<8;i++) answers.push(all[(start+i) % all.length]);
+    state.answers = answers;
+    // If restored answers differ (e.g., version change), reset
+    if(!state.rows.some(r=>r.length)){
+      save();
+    }
+  }
+
+  // Rendering ---------------------------------------------------
+  function render(){
+    // Fill tiles for each board
+    for(let b=0;b<state.boardCount;b++){
+      const card = $(`.board[data-index="${b}"]`);
+      const tiles = $$('.tile', card);
+      const guesses = state.rows[b];
+      for(let r=0;r<state.triesPerBoard;r++){
+        const word = guesses[r] || '';
+        for(let c=0;c<5;c++){
+          const idx = r*5+c;
+          const t = tiles[idx];
+          t.textContent = word[c]?.toUpperCase() || '';
+          // color rule: only color the active logical board (b==active) for submitted rows;
+          // non-active boards keep 'neutral' even if the answer would match positions
+          t.className = 'tile';
+          if(word){
+            if(b===state.board && state.evaluations[b][r]){
+              t.classList.add(state.evaluations[b][r][c]);
+            }else{
+              t.classList.add('neutral'); // persist as gray/neutral
+            }
           }
         }
       }
-      // typing buffer appears on the next row for *all* boards as faded
-      const row = rows;
-      if(row<15){
-        for(let i=0;i<WORDLEN;i++){
-          const t = grid.children[row*WORDLEN+i];
-          t.textContent = buffer[i]||'';
-          if(!(b===state.active || state.solved[b])) t.classList.add('faded');
-        }
+    }
+    refreshNav();
+  }
+
+  // Input handling ----------------------------------------------
+  let composing = ''; // current row composing input
+  let invalidHold = false;
+
+  function currentRowIndex(){
+    return state.rows[state.board].length; // next row index is current composing row
+  }
+  function setComposing(s){
+    composing = s.slice(0,5);
+    drawComposing();
+  }
+  function drawComposing(){
+    const card = $(`.board[data-index="${state.board}"]`);
+    const tiles = $$('.tile', card);
+    const r = currentRowIndex();
+    for(let c=0;c<5;c++){
+      const idx = r*5+c;
+      const t = tiles[idx];
+      t.textContent = composing[c]?.toUpperCase() || '';
+      t.classList.remove('invalid');
+      if(invalidHold) t.classList.add('invalid');
+      if(composing[c]) t.classList.add('filled');
+    }
+  }
+
+  function isAlpha(ch){ return /^[a-z]$/i.test(ch); }
+
+  window.addEventListener('keydown', (e) => {
+    if(e.metaKey || e.ctrlKey || e.altKey) return;
+    const b = state.board;
+    if(state.solved[b]) return; // solved, wait for next
+
+    if(e.key==='Backspace'){
+      if(invalidHold){ invalidHold=false; }
+      setComposing(composing.slice(0,-1));
+    } else if(e.key==='Enter'){
+      if(composing.length===5){
+        submit(composing.toLowerCase());
+      }
+    } else if(isAlpha(e.key)){
+      if(composing.length<5){
+        setComposing(composing + e.key.toLowerCase());
       }
     }
-  }
+  });
 
-  function submit(){
-    if(buffer.length!==WORDLEN) return;
-    const w = buffer; buffer='';
-    const b = state.active;
-    if(state.solved[b]) return;
-    // Accept only 5-letter (we're using the big list as answers; you can add rejection UI later)
-    state.guesses[b].push(w);
-    // check
-    if(w===answers[b]){
-      state.solved[b]=true;
-      const btn = $(`.navBtn[data-idx="${b}"]`); if(btn) btn.classList.add('solved');
-      window.fwwConfetti();
-      if(b<BOARDS-1) state.active=b+1, view=b+1;
-    }else{
-      // ensure we don't exceed TRIES (implicitly handled by render buffer)
+  // Evaluate a guess
+  function evalGuess(guess, answer){
+    // build frequency
+    const res = Array(5).fill('gray');
+    const freq = {};
+    for(const ch of answer) freq[ch]=(freq[ch]||0)+1;
+    // greens
+    for(let i=0;i<5;i++){
+      if(guess[i]===answer[i]){
+        res[i]='green';
+        freq[guess[i]]--;
+      }
     }
-    save(); paint();
+    // yellows
+    for(let i=0;i<5;i++){
+      if(res[i]==='green') continue;
+      const ch = guess[i];
+      if(freq[ch]>0){
+        res[i]='yellow';
+        freq[ch]--;
+      }
+    }
+    return res;
   }
 
-  // Stats toast
+  function confettiBlast(){
+    const c = document.createElement('canvas');
+    c.style.cssText='position:fixed;inset:0;pointer-events:none;z-index:60';
+    document.body.appendChild(c);
+    const ctx = c.getContext('2d');
+    const dpr = window.devicePixelRatio||1;
+    function resize(){ c.width=innerWidth*dpr; c.height=innerHeight*dpr; }
+    resize(); window.addEventListener('resize', resize, {once:true});
+    const parts = Array.from({length:140}, _=> ({
+      x:Math.random()*c.width, y:-20*dpr, vy:2*dpr+Math.random()*5*dpr, vx:(Math.random()-0.5)*3*dpr,
+      r:4*dpr+Math.random()*6*dpr, a:1, hue: ~~(200+Math.random()*160)
+    }));
+    let t=0;
+    (function loop(){
+      t++;
+      ctx.clearRect(0,0,c.width,c.height);
+      parts.forEach(p=>{
+        p.x+=p.vx; p.y+=p.vy; p.a-=0.008;
+        ctx.fillStyle = `hsla(${p.hue},95%,60%,${Math.max(p.a,0)})`;
+        ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fill();
+      });
+      if(t<180) requestAnimationFrame(loop); else c.remove();
+    })();
+  }
+
+  async function submit(word){
+    // dictionary check
+    const allow = await ensureDict();
+    if(!allow.has(word)){
+      invalidHold = true;
+      drawComposing();
+      return;
+    }
+    invalidHold = false;
+
+    // Apply to all boards visually (neutral on others)
+    for(let b=0;b<state.boardCount;b++){
+      if(state.rows[b].length < state.triesPerBoard){
+        state.rows[b].push(word);
+        state.evaluations[b].push(null); // placeholder until evaluated on its turn
+      }
+    }
+
+    // Evaluate only current logical board
+    const b = state.board;
+    const rowIndex = state.rows[b].length-1;
+    const ev = evalGuess(word, state.answers[b]);
+    state.evaluations[b][rowIndex] = ev;
+
+    if(word===state.answers[b]){
+      state.solved[b]=true;
+      confettiBlast();
+      // advance to next board if any
+      if(state.board < state.boardCount-1){
+        state.board++;
+      }
+    } else {
+      // if out of tries on the active board, stay but no op
+    }
+
+    composing='';
+    save();
+    render();
+  }
+
+  // Dictionary caching
+  let dictPromise = null;
+  function ensureDict(){
+    if(dictPromise) return dictPromise;
+    dictPromise = fetch('assets/valid_words.txt?v=1779').then(r=>r.text()).then(t=>{
+      const s = new Set(t.split(/\r?\n/).map(x=>x.trim().toLowerCase()).filter(Boolean));
+      return s;
+    });
+    return dictPromise;
+  }
+
+  // Save
+  function save(){
+    localStorage.setItem(STORE_KEY, JSON.stringify(state));
+  }
+
+  // Stats popup
   function showStats(){
-    const solved = state.solved.filter(Boolean).length;
-    const body = $('#toastBody');
-    body.innerHTML = `<div class="stats">
-      <div class="row"><span>Date (ET)</span><b>${DAY}</b></div>
-      <div class="row"><span>Solved</span><b>${solved}/8</b></div>
-      <div class="row"><span>Version</span><b>${VERSION} · ${BUILD}</b></div>
-    </div>`;
-    $('#toast').classList.remove('hidden');
+    // Compute solved boards today & streak basics
+    const solvedCount = state.solved.filter(Boolean).length;
+    const solvedAll = solvedCount===state.boardCount;
+    const STREAK_KEY = `${GAME_VERSION_KEY}.streak`;
+    const BEST_KEY = `${GAME_VERSION_KEY}.best`;
+    let streak = parseInt(localStorage.getItem(STREAK_KEY)||'0',10);
+    let best = parseInt(localStorage.getItem(BEST_KEY)||'0',10);
+    const FLAG_KEY = `${STORE_KEY}.complete`;
+    if(solvedAll && !localStorage.getItem(FLAG_KEY)){
+      streak = streak+1;
+      best = Math.max(best, streak);
+      localStorage.setItem(STREAK_KEY, String(streak));
+      localStorage.setItem(BEST_KEY, String(best));
+      localStorage.setItem(FLAG_KEY, '1');
+    } else if(!solvedAll && !localStorage.getItem(FLAG_KEY)) {
+      // do not modify streak
+    }
+    $('#statsBody').innerHTML = `
+      <div><strong>Streak:</strong> ${streak}</div>
+      <div><strong>Best:</strong> ${best}</div>
+      <div><strong>Today:</strong> ${solvedCount} / ${state.boardCount} solved</div>
+    `;
+    openToast('#statsToast');
   }
-  $('#statsLink').addEventListener('click', (e)=>{ e.preventDefault(); showStats(); });
-  $('#toastClose').addEventListener('click', ()=>$('#toast').classList.add('hidden'));
 
-  // Init
-  (async function(){
-    build();
-    load();
-    await loadAnswers();
-    // If first board has no guesses yet, prep for typing UX
-    if((state.guesses[state.active]||[]).length===0) {}
-    paint();
-  })();
+  // Init --------------------------------------------------------
+  buildBoards();
+  buildNav();
+  buildKeyboard();
+  loadWords().then(()=>{
+    render();
+  });
+
 })();
