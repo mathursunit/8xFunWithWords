@@ -1,5 +1,24 @@
 
 document.addEventListener("DOMContentLoaded", () => {
+  // THEME: prefers + localStorage + radio binding
+  (function initTheme(){
+    try{
+      const saved = localStorage.getItem("8xfww-theme");
+      const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const theme = (saved === "light" || saved === "dark") ? saved : (prefersDark ? "dark" : "light");
+      document.documentElement.setAttribute("data-theme", theme);
+      const radios = document.querySelectorAll('input[name="theme"]');
+      radios.forEach(r=>{
+        r.checked = (r.value === theme);
+        r.addEventListener("change", (e)=>{
+          const t = e.target.value;
+          document.documentElement.setAttribute("data-theme", t);
+          localStorage.setItem("8xfww-theme", t);
+        });
+      });
+    }catch(e){ console.warn("theme init", e); }
+  })();
+
   const VERSION = "1762";
   const WORD_LEN = 5;
   const MAX_ROWS = 15;
@@ -152,6 +171,7 @@ document.addEventListener("DOMContentLoaded", () => {
       // 1) Persist this guess (ghost) on EVERY board at its current row, then advance their row counters.
       for(let bi=0; bi<BOARD_COUNT; bi++){ 
         const sb=state[bi]; 
+        if(sb.solved) continue; 
         if(sb.attempt>=MAX_ROWS) continue; 
         if(!sb.rows[sb.attempt]) sb.rows[sb.attempt]=guess; 
         paintRowGhost(bi,sb.attempt); 
@@ -167,6 +187,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if(guess===answer){ 
         s.solved=true; 
+        confettiBurstForBoard(activeBoard);
         if(activeBoard===BOARD_COUNT-1){ if(window.launchConfetti) window.launchConfetti(); } 
         else unlockNext(); 
       } else { 
@@ -182,6 +203,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const curStr=(sCur.rows[sCur.attempt]||""); 
       for(let bi=0; bi<BOARD_COUNT; bi++){ 
         const s=state[bi]; 
+        if(s.solved){ continue; }
         const ri=s.attempt; 
         if(ri>=MAX_ROWS) continue; 
         if(bi===activeBoard) { renderRowActive(bi,ri); continue; }
@@ -224,6 +246,17 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     function updateKeyboard(guess,res){ for(let i=0;i<WORD_LEN;i++){ const ch=guess[i]; const k=findKey(ch); if(!k) continue; if(res[i]==="correct"){k.classList.remove("present","absent");k.classList.add("correct");} else if(res[i]==="present"&&!k.classList.contains("correct")){k.classList.remove("absent");k.classList.add("present");} else if(!k.classList.contains("correct")&&!k.classList.contains("present")){k.classList.add("absent");} } }
     function findKey(ch){ return Array.from(keyboardEl.querySelectorAll(".key")).find(k=>k.textContent===ch)||null; }
+
+    function confettiBurstForBoard(bi){
+      try{
+        if(!window.confetti) return;
+        const el = boardEl(bi);
+        const r = el.getBoundingClientRect();
+        const cx = (r.left + r.width/2) / window.innerWidth;
+        const cy = Math.max(0, (r.top + 20) / window.innerHeight);
+        window.confetti({ particleCount: 70, spread: 60, origin: { x: cx, y: cy }, ticks: 120 });
+      }catch(e){ /* ignore */ }
+    }
 
     function unlockNext(){ 
       if(activeBoard<BOARD_COUNT-1){ 
